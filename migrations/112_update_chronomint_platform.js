@@ -9,6 +9,10 @@ const LOCWallet = artifacts.require('./LOCWallet.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 
 module.exports = function(deployer, network, accounts) {
+    if (network === 'main') {
+        return
+    }
+    
     const systemOwner = accounts[0]
 
     deployer

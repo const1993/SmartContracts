@@ -19,38 +19,22 @@ module.exports = function(deployer, network, accounts) {
     .then(_chronoBankPlatform => _chronoBankPlatform.claimContractOwnership())
     .then(() => {
         return Promise.resolve()
-        .then(() => platformsManager.getIdForPlatform.call(ChronoBankPlatform.address))
-        .then(_id => {
-            if (_id == 0) {
-                return;
+        .then(() => platformsManager.detachPlatform.call(ChronoBankPlatform.address))
+        .then(_code => {
+            if (_code != ErrorsEnum.OK) {
+                console.log("It's OK, just cannot detach old ChronoBank platform at ", ChronoBankPlatform.address, ". Code: ", _code)
+                return
             }
 
             return Promise.resolve()
-            .then(() => platformsManager.detachPlatform.call(ChronoBankPlatform.address))
-            .then(_code => {
-                if (_code != ErrorsEnum.OK) {
-                    console.log("It's OK, just cannot detach old ChronoBank platform at ", ChronoBankPlatform.address, ". Code: ", _code)
-                    return
-                }
-
-                return Promise.resolve()
-                .then(() => platformsManager.detachPlatform(ChronoBankPlatform.address))
-            })
+            .then(() => platformsManager.detachPlatform(ChronoBankPlatform.address))
         })
     })
 
     .then(() => {
     if (!(network === 'main' || network === 'ropsten')) {
         return Promise.resolve()
-        .then(() => platformsManager.createPlatform.call())
-        .then(_code => {
-            if (_code != ErrorsEnum.OK) {
-                throw "Bad. Cannot request new platform. Code: " + _code
-            }
-
-            return Promise.resolve()
-            .then(() => platformsManager.createPlatform())
-        })
+        .then(() => platformsManager.createPlatform())
         .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
         .then(_platformAddr => ChronoBankPlatform.at(_platformAddr))
         .then(_platform => _platform.claimContractOwnership())

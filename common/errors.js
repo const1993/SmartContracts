@@ -156,9 +156,6 @@ const errorsLibrary = {
     CHRONOBANK_PLATFORM_ALREADY_TRUSTED: errorScope.chronobankplatform + 11,
     CHRONOBANK_PLATFORM_SHOULD_RECOVER_TO_NEW_ADDRESS: errorScope.chronobankplatform + 12,
     CHRONOBANK_PLATFORM_ASSET_IS_NOT_ISSUED: errorScope.chronobankplatform + 13,
-    CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_OWNER: errorScope.chronobankplatform + 14,
-    CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_PROXY: errorScope.chronobankplatform + 15,
-    CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_TRUSTED: errorScope.chronobankplatform + 16,
     CHRONOBANK_PLATFORM_INVALID_INVOCATION: errorScope.chronobankplatform + 17,
 
     PLATFORMS_ATTACHING_PLATFORM_ALREADY_EXISTS: errorScope.platforms + 1,

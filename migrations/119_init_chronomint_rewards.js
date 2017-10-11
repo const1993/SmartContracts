@@ -6,12 +6,19 @@ const MultiEventsHistory = artifacts.require("./MultiEventsHistory.sol");
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 
-module.exports = function (deployer, network) {
+module.exports = function (deployer, network, accounts) {
+    const systemOwner = accounts[0]
+
     deployer
     .then(() => StorageManager.deployed())
     .then(_storageManager => _storageManager.giveAccess(Rewards.address, "Deposits"))
     .then(() => Rewards.deployed())
-    .then(_manager => _manager.init(ContractsManager.address, RewardsWallet.address, ChronoBankPlatform.address, 0))
+    .then(_manager => {
+        return Promise.resolve()
+        .then(() => PlatformsManager.deployed())
+        .then(_platformsManager => _platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
+        .then(_platformAddr => _manager.init(ContractsManager.address, RewardsWallet.address, _platformAddr, 0))
+    })
     .then(() => MultiEventsHistory.deployed())
     .then(_history => _history.authorize(Rewards.address))
 

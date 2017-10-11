@@ -20,7 +20,6 @@ module.exports = function(deployer, network, accounts) {
     .then(_rewards => {
         return Promise.resolve()
         .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-        .then(_platformAddr => platformsManager.getIdForPlatform.call(_platformAddr))
-        .then(_platformId => _rewards.init(ContractsManager.address, RewardsWallet.address, _platformId, 0))
+        .then(_platformAddr => _rewards.init(ContractsManager.address, RewardsWallet.address, _platformAddr, 0))
     })
 }

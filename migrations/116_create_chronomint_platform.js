@@ -32,8 +32,6 @@ module.exports = function(deployer, network, accounts) {
     .then(() => platformsManager.createPlatform())
     .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
     .then(_platformAddr => platformAddr = _platformAddr)
-    .then(() => ChronoBankPlatform.at(platformAddr))
-    .then(_platform => _platform.claimContractOwnership())
     .then(() => assetsManager.getTokenExtension.call(platformAddr))
     .then(_tokenExtensionAddr => BaseTokenManagementExtension.at(_tokenExtensionAddr))
     .then(_tokenExtension => tokenExtension = _tokenExtension)
@@ -44,4 +42,6 @@ module.exports = function(deployer, network, accounts) {
         return Promise.resolve()
         .then(() => _assetOwnershipManager.addAssetPartOwner(LHT_SYMBOL, LOCWallet.address))
     })
+
+    .then(() => console.log("[MIGRATION] [" + parseInt(require("path").basename(__filename)) + "] PlatformsManager reinit: #done"))
 }

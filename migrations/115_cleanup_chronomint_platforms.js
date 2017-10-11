@@ -7,9 +7,7 @@ const LOCWallet = artifacts.require('./LOCWallet.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 
 module.exports = function(deployer, network, accounts) {
-    if (network === 'kovan') {
-        return
-    }
+    return;
 
     //----------
     const LHT_SYMBOL = 'LHT'
@@ -61,4 +59,6 @@ module.exports = function(deployer, network, accounts) {
         })
     })
     .then(() => erc20Manager.removeTokenBySymbol("LHT"))
+
+    .then(() => console.log("[MIGRATION] [" + parseInt(require("path").basename(__filename)) + "] Platforms cleanup: #done"))
 }

@@ -72,7 +72,7 @@ contract Rewards is Deposits, RewardsEmitter {
     StorageInterface.UIntUIntMapping shareholdersCount;
     StorageInterface.UIntAddressUIntMapping assetBalances;
     StorageInterface.UIntAddressAddressBoolMapping calculated;
-    StorageInterface.UInt targetPlatformId;
+    StorageInterface.Address targetPlatform;
     StorageInterface.Address walletStorage;
 
     function Rewards(Storage _store, bytes32 _crate) Deposits(_store, _crate) {
@@ -88,7 +88,7 @@ contract Rewards is Deposits, RewardsEmitter {
         assetBalances.init('assetBalances');
         calculated.init('calculated');
         shares.init('shares');
-        targetPlatformId.init('targetPlatformId');
+        targetPlatform.init('targetPlatform');
         walletStorage.init("walletStorage");
     }
 
@@ -103,11 +103,11 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return result code, @see Errors
      */
-    function init(address _contractsManager, address _wallet, uint _targetPlatformId, uint _closeIntervalDays) onlyContractOwner returns (uint) {
+    function init(address _contractsManager, address _wallet, address _targetPlatform, uint _closeIntervalDays) onlyContractOwner returns (uint) {
         uint result = BaseManager.init(_contractsManager, "Rewards");
 
         store.set(closeInterval, _closeIntervalDays);
-        store.set(targetPlatformId, _targetPlatformId);
+        store.set(targetPlatform, _targetPlatform);
         store.set(walletStorage, _wallet);
 
         // do not update default values if reinitialization
@@ -162,14 +162,14 @@ contract Rewards is Deposits, RewardsEmitter {
 
     function getAssets() constant returns(address[] result) {
         PlatformsManagerInterface platformsManager = PlatformsManagerInterface(lookupManager("PlatformsManager"));
-        address targetPlatform = platformsManager.getPlatformWithId(store.get(targetPlatformId));
+        address _targetPlatform = store.get(targetPlatform);
         AssetsManagerInterface assetsManager = AssetsManagerInterface(lookupManager("AssetsManager"));
         address chronoMintWallet = WalletBackedManagerInterface(lookupManager("LOCManager")).wallet();
-        uint assetsCount = assetsManager.getAssetsForOwnerCount(targetPlatform, chronoMintWallet);
+        uint assetsCount = assetsManager.getAssetsForOwnerCount(_targetPlatform, chronoMintWallet);
         result = new address[](assetsCount);
         bytes32 symbol;
         for (uint idx = 0; idx < assetsCount; ++idx) {
-            symbol = assetsManager.getAssetForOwnerAtIndex(targetPlatform, chronoMintWallet, idx);
+            symbol = assetsManager.getAssetForOwnerAtIndex(_targetPlatform, chronoMintWallet, idx);
             result[idx] = assetsManager.getAssetBySymbol(symbol);
         }
     }

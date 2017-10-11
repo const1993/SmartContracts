@@ -8,14 +8,13 @@ import "../core/contracts/ContractsManagerInterface.sol";
 */
 contract PlatformsManagerMock {
 
-    event PlatformAttached(address indexed self, uint platformId, address platform);
-    event PlatformDetached(address indexed self, uint platformId, address platform);
+    event PlatformAttached(address indexed self, address platform);
+    event PlatformDetached(address indexed self, address platform);
     /*event PlatformRequested(address indexed self, uint platformId, address platform, address tokenExtension);*/
 
     uint constant OK = 1;
     uint constant INVALID_INVOCATION = 123456789;
     address contractsManager;
-    mapping (uint => address) idToPlatform;
     mapping (address => uint) platformToId;
     mapping (address => address) ownerToPlatform;
     uint idCounter = 1000;
@@ -35,7 +34,6 @@ contract PlatformsManagerMock {
     }
 
     function addPlatformWithId(address platform, uint id) public returns (uint) {
-        idToPlatform[id] = platform;
         platformToId[platform] = id;
         return OK;
     }
@@ -50,20 +48,6 @@ contract PlatformsManagerMock {
     /**
     * @dev TODO
     */
-    function getPlatformWithId(uint _id) public constant returns (address) {
-        return idToPlatform[_id];
-    }
-
-    /**
-    * @dev TODO
-    */
-    function getIdForPlatform(address _platform) public constant returns (uint) {
-        return platformToId[_platform];
-    }
-
-    /**
-    * @dev TODO
-    */
     function attachPlatform(address _platform) public returns (uint resultCode) {
         if (platformToId[_platform] != 0) {
             return INVALID_INVOCATION;
@@ -71,10 +55,9 @@ contract PlatformsManagerMock {
 
         uint _id = idCounter + 1;
         platformToId[_platform] = _id;
-        idToPlatform[_id] = _platform;
         idCounter = _id;
 
-        PlatformAttached(this, _id, _platform);
+        PlatformAttached(this, _platform);
         return OK;
     }
 
@@ -86,13 +69,6 @@ contract PlatformsManagerMock {
         return _performDetachingPlatform(_platform, _platformId);
     }
 
-    /**
-    * @dev TODO
-    */
-    function detachPlatformWithId(uint _platformId) public returns (uint) {
-        address _platform = idToPlatform[_platformId];
-        return _performDetachingPlatform(_platform, _platformId);
-    }
 
     /**
     * @dev TODO
@@ -110,8 +86,7 @@ contract PlatformsManagerMock {
         }
 
         delete platformToId[_platform];
-        delete idToPlatform[_id];
-        PlatformDetached(this, _id, _platform);
+        PlatformDetached(this, _platform);
         return OK;
     }
 }

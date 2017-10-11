@@ -48,16 +48,6 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
     /**
     * @dev TODO
     */
-    modifier onlyTokenExtension() {
-        if (!store.includes(tokenExtensions, msg.sender)) {
-            revert();
-        }
-        _;
-    }
-
-    /**
-    * @dev TODO
-    */
     modifier onlyPlatformOwner(address _platform) {
         if (OwnedContract(_platform).contractOwner() == msg.sender) {
             _;
@@ -126,7 +116,7 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
     /**
     * @dev TODO
     */
-    function registerTokenExtension(address _tokenExtension) onlyContractOwner public returns (uint) {
+    function registerTokenExtension(address _tokenExtension) onlyPlatformOwner(TokenManagementInterface(_tokenExtension).platform()) public returns (uint) {
         if (store.includes(tokenExtensions, _tokenExtension)) {
             return _emitError(ERROR_ASSETS_MANAGER_EXTENSION_ALREADY_EXISTS);
         }

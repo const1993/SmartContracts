@@ -43,9 +43,6 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     uint constant CHRONOBANK_PLATFORM_ALREADY_TRUSTED = CHRONOBANK_PLATFORM_SCOPE + 11;
     uint constant CHRONOBANK_PLATFORM_SHOULD_RECOVER_TO_NEW_ADDRESS = CHRONOBANK_PLATFORM_SCOPE + 12;
     uint constant CHRONOBANK_PLATFORM_ASSET_IS_NOT_ISSUED = CHRONOBANK_PLATFORM_SCOPE + 13;
-    uint constant CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_OWNER = CHRONOBANK_PLATFORM_SCOPE + 14;
-    uint constant CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_PROXY = CHRONOBANK_PLATFORM_SCOPE + 15;
-    uint constant CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_TRUSTED = CHRONOBANK_PLATFORM_SCOPE + 16;
     uint constant CHRONOBANK_PLATFORM_INVALID_INVOCATION = CHRONOBANK_PLATFORM_SCOPE + 17;
 
     // Structure of a particular asset.
@@ -116,14 +113,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function setupEventsHistory(address _eventsHistory) returns(uint errorCode) {
-        errorCode = checkOnlyContractOwner();
-        if (errorCode != OK) {
-            return errorCode;
-        }
-        if (eventsHistory != 0x0 && eventsHistory != _eventsHistory) {
-            return CHRONOBANK_PLATFORM_INVALID_INVOCATION;
-        }
+    function setupEventsHistory(address _eventsHistory) onlyContractOwner returns(uint errorCode) {
         eventsHistory = _eventsHistory;
         return OK;
     }
@@ -132,7 +122,25 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      * Emits Error if called not by asset owner.
      */
     modifier onlyOwner(bytes32 _symbol) {
-        if (checkIsOnlyOwner(_symbol) == OK) {
+        if (isOwner(msg.sender, _symbol)) {
+            _;
+        }
+    }
+
+    /**
+    * @dev UNAUTHORIZED if called not by one of symbol's partowners or owner
+    */
+    modifier onlyOneOfOwners(bytes32 _symbol) {
+        if (hasAssetRights(msg.sender, _symbol)) {
+            _;
+        }
+    }
+
+    /**
+    * @dev UNAUTHORIZED if called not by one of partowners or contract's owner
+    */
+    modifier onlyOneOfContractOwners() {
+        if (contractOwner == msg.sender || partowners[msg.sender]) {
             _;
         }
     }
@@ -141,7 +149,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      * Emits Error if called not by asset proxy.
      */
     modifier onlyProxy(bytes32 _symbol) {
-        if (checkIsOnlyProxy(_symbol) == OK) {
+        if (proxies[_symbol] == msg.sender) {
             _;
         }
     }
@@ -150,43 +158,8 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      * Emits Error if _from doesn't trust _to.
      */
     modifier checkTrust(address _from, address _to) {
-        if (shouldBeTrusted(_from, _to) == OK) {
-            _;
-        }
-    }
-
-    function checkIsOnlyOwner(bytes32 _symbol) internal constant returns(uint errorCode) {
-        if (isOwner(msg.sender, _symbol)) {
-            return OK;
-        }
-        return _error(CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_OWNER, "Only owner: access denied");
-    }
-
-    function checkIsOnlyOneOfOwners(bytes32 _symbol) internal constant returns (uint errorCode) {
-        if (hasAssetRights(msg.sender, _symbol)) {
-            return OK;
-        }
-        return _error(CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_OWNER, "Only owners: access denied");
-    }
-
-    function checkIsOnlyProxy(bytes32 _symbol) internal constant returns(uint errorCode) {
-        if (proxies[_symbol] == msg.sender) {
-            return OK;
-        }
-        return _error(CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_PROXY, "Only proxy: access denied");
-    }
-
-    function shouldBeTrusted(address _from, address _to) internal constant returns(uint errorCode) {
         if (isTrusted(_from, _to)) {
-            return OK;
-        }
-        return _error(CHRONOBANK_PLATFORM_ACCESS_DENIED_ONLY_TRUSTED, "Only trusted: access denied");
-    }
-
-    function checkOnlyOneOfContractOwners() internal constant returns (uint errorCode) {
-        errorCode = checkOnlyContractOwner();
-        if (errorCode == OK || partowners[msg.sender]) {
-            return OK;
+            _;
         }
     }
 
@@ -371,12 +344,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     *
     * @return errorCode result code of an operation
     */
-    function addAssetPartOwner(bytes32 _symbol, address _partowner) returns (uint errorCode) {
-        errorCode = checkIsOnlyOneOfOwners(_symbol);
-        if (errorCode != OK) {
-            return errorCode;
-        }
-
+    function addAssetPartOwner(bytes32 _symbol, address _partowner) onlyOneOfOwners(_symbol) public returns (uint) {
         uint holderId = _createHolderId(_partowner);
         assets[_symbol].partowners[holderId] = true;
         return OK;
@@ -391,12 +359,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     *
     * @return errorCode result code of an operation
     */
-    function removeAssetPartOwner(bytes32 _symbol, address _partowner) returns (uint errorCode) {
-        errorCode = checkIsOnlyOneOfOwners(_symbol);
-        if (errorCode != OK) {
-            return errorCode;
-        }
-
+    function removeAssetPartOwner(bytes32 _symbol, address _partowner) onlyOneOfOwners(_symbol) public returns (uint) {
         uint holderId = getHolderId(_partowner);
         delete assets[_symbol].partowners[holderId];
         return OK;
@@ -412,15 +375,11 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function setProxy(address _address, bytes32 _symbol) returns(uint errorCode) {
-        errorCode = checkOnlyOneOfContractOwners();
-        if (errorCode != OK) {
-            return errorCode;
-        }
-
+    function setProxy(address _address, bytes32 _symbol) onlyOneOfContractOwners returns(uint) {
         if (proxies[_symbol] != 0x0) {
             return CHRONOBANK_PLATFORM_PROXY_ALREADY_EXISTS;
         }
+
         proxies[_symbol] = _address;
         return OK;
     }
@@ -496,12 +455,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function proxyTransferWithReference(address _to, uint _value, bytes32 _symbol, string _reference, address _sender) returns(uint errorCode) {
-        errorCode = checkIsOnlyProxy(_symbol);
-        if (errorCode != OK) {
-            return errorCode;
-        }
-
+    function proxyTransferWithReference(address _to, uint _value, bytes32 _symbol, string _reference, address _sender) onlyProxy(_symbol) returns(uint) {
         return _transfer(getHolderId(_sender), _createHolderId(_to), _value, _symbol, _reference, getHolderId(_sender));
     }
 
@@ -565,11 +519,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function issueAsset(bytes32 _symbol, uint _value, string _name, string _description, uint8 _baseUnit, bool _isReissuable) returns(uint errorCode) {
-        errorCode = checkOnlyOneOfContractOwners();
-        if (errorCode != OK) {
-            return errorCode;
-        }
+    function issueAsset(bytes32 _symbol, uint _value, string _name, string _description, uint8 _baseUnit, bool _isReissuable) onlyOneOfContractOwners public returns(uint) {
         // Should have positive value if supply is going to be fixed.
         if (_value == 0 && !_isReissuable) {
             return _error(CHRONOBANK_PLATFORM_CANNOT_ISSUE_FIXED_ASSET_WITH_INVALID_VALUE, "Cannot issue 0 value fixed asset");
@@ -601,11 +551,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function reissueAsset(bytes32 _symbol, uint _value) returns(uint errorCode) {
-        errorCode = checkIsOnlyOneOfOwners(_symbol);
-        if (errorCode != OK) {
-            return errorCode;
-        }
+    function reissueAsset(bytes32 _symbol, uint _value) onlyOneOfOwners(_symbol) public returns(uint) {
         // Should have positive value.
         if (_value == 0) {
             return _error(CHRONOBANK_PLATFORM_INVALID_VALUE, "Cannot reissue 0 value");
@@ -638,7 +584,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function revokeAsset(bytes32 _symbol, uint _value) returns(uint) {
+    function revokeAsset(bytes32 _symbol, uint _value) public returns(uint) {
         // Should have positive value.
         if (_value == 0) {
             return _error(CHRONOBANK_PLATFORM_INVALID_VALUE, "Cannot revoke 0 value");
@@ -670,12 +616,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function changeOwnership(bytes32 _symbol, address _newOwner) returns(uint errorCode) {
-        errorCode = checkIsOnlyOwner(_symbol);
-        if (errorCode != OK) {
-            return errorCode;
-        }
-
+    function changeOwnership(bytes32 _symbol, address _newOwner) onlyOwner(_symbol) public returns(uint) {
         if (_newOwner == 0x0) {
             return _error(CHRONOBANK_PLATFORM_INVALID_NEW_OWNER, "Can't change ownership to 0x0");
         }
@@ -736,11 +677,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function distrust(address _to) returns(uint errorCode) {
-        errorCode = shouldBeTrusted(msg.sender, _to);
-        if (errorCode != OK) {
-            return errorCode;
-        }
+    function distrust(address _to) checkTrust(msg.sender, _to) public returns (uint) {
         holders[getHolderId(msg.sender)].trust[_to] = false;
         return OK;
     }
@@ -757,11 +694,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function recover(address _from, address _to) returns(uint errorCode) {
-        errorCode = shouldBeTrusted(_from, msg.sender);
-        if (errorCode != OK) {
-            return errorCode;
-        }
+    function recover(address _from, address _to) checkTrust(_from, msg.sender) public returns (uint errorCode) {
         // Should recover to previously unused address.
         if (getHolderId(_to) != 0) {
             return _error(CHRONOBANK_PLATFORM_SHOULD_RECOVER_TO_NEW_ADDRESS, "Should recover to new address");
@@ -825,11 +758,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function proxyApprove(address _spender, uint _value, bytes32 _symbol, address _sender) returns(uint errorCode) {
-        errorCode = checkIsOnlyProxy(_symbol);
-        if (errorCode != OK) {
-            return errorCode;
-        }
+    function proxyApprove(address _spender, uint _value, bytes32 _symbol, address _sender) onlyProxy(_symbol) public returns (uint) {
         return _approve(_createHolderId(_spender), _value, _symbol, _createHolderId(_sender));
     }
 
@@ -873,11 +802,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * @return success.
      */
-    function proxyTransferFromWithReference(address _from, address _to, uint _value, bytes32 _symbol, string _reference, address _sender) returns(uint errorCode) {
-        errorCode = checkIsOnlyProxy(_symbol);
-        if (errorCode != OK) {
-            return errorCode;
-        }
+    function proxyTransferFromWithReference(address _from, address _to, uint _value, bytes32 _symbol, string _reference, address _sender) onlyProxy(_symbol) public returns (uint) {
         return _transfer(getHolderId(_from), _createHolderId(_to), _value, _symbol, _reference, getHolderId(_sender));
     }
 }

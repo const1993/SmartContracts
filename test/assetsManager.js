@@ -51,14 +51,10 @@ contract('Assets Manager', function(accounts) {
             let platform
 
             it("prepare", async () => {
-                let successRequestPlatformResultCode = await Setup.platformsManager.createPlatform.call({ from: owner })
-                assert.equal(successRequestPlatformResultCode, ErrorsEnum.OK)
-
                 let successRequestPlatfortTx = await Setup.platformsManager.createPlatform({ from: owner })
                 let event = eventsHelper.extractEvents(successRequestPlatfortTx, "PlatformRequested")[0]
                 assert.isDefined(event)
                 platform = await ChronoBankPlatform.at(event.args.platform)
-                await platform.claimContractOwnership({ from: owner })
                 platformToId = event.args.platformId
                 assert.notEqual(event.args.tokenExtension, zeroAddress)
             })

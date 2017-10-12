@@ -74,7 +74,7 @@ function EventsHelper() {
 
   this.setupEvents = function(contract) {
     allEventsWatcher = contract.allEvents();
-    console.log("all events for contract:" + JSON.stringify(allEventsWatcher, null, 5));
+    //console.log("all events for contract:" + JSON.stringify(allEventsWatcher, null, 5));
   }
 
   this.extractEvents = function(txHash, eventName) {

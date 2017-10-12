@@ -89,7 +89,7 @@ contract Rewards is Deposits, RewardsEmitter {
         calculated.init('calculated');
         shares.init('shares');
         targetPlatform.init('targetPlatform');
-        walletStorage.init("walletStorage");
+        walletStorage.init("rewardsWalletStorage");
     }
 
     /**
@@ -161,7 +161,6 @@ contract Rewards is Deposits, RewardsEmitter {
     }
 
     function getAssets() constant returns(address[] result) {
-        PlatformsManagerInterface platformsManager = PlatformsManagerInterface(lookupManager("PlatformsManager"));
         address _targetPlatform = store.get(targetPlatform);
         AssetsManagerInterface assetsManager = AssetsManagerInterface(lookupManager("AssetsManager"));
         address chronoMintWallet = WalletBackedManagerInterface(lookupManager("LOCManager")).wallet();

@@ -1,6 +1,7 @@
 pragma solidity ^0.4.11;
 
 import "../core/common/BaseManager.sol";
+import "../timeholder/FeatureFeeAdapter.sol";
 import "../core/common/OwnedInterface.sol";
 import "../core/platform/ChronoBankAssetOwnershipManager.sol";
 import "./PlatformsManagerEmitter.sol";
@@ -21,7 +22,7 @@ contract OwnedContract {
 /**
 * @dev TODO
 */
-contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
+contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmitter {
 
     /** Error codes */
 
@@ -173,6 +174,10 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
     * @dev TODO
     */
     function createPlatform(bytes32 _name) public returns (uint resultCode) {
+        return _createPlatform(_name, [uint(0)]);
+    }
+
+    function _createPlatform(bytes32 _name, uint[1] memory _result) featured(_result) private returns (uint resultCode) {
         PlatformsFactory factory = PlatformsFactory(store.get(platformsFactory));
         address _platform = factory.createPlatform(msg.sender);
         _attachPlatformWithoutValidation(_platform, _name, msg.sender);

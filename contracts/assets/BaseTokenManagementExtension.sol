@@ -10,7 +10,8 @@ import "../core/erc20/ERC20Interface.sol";
 import "./AssetsManagerInterface.sol";
 import "./TokenManagementInterface.sol";
 import "./FeeInterface.sol";
-
+import "../timeholder/FeatureFeeAdapter.sol";
+import "../core/lib/StringsLib.sol";
 
 contract ChronoBankAsset {
     function init(ChronoBankAssetProxyInterface _proxy) returns (bool);
@@ -53,7 +54,7 @@ contract OwnedContract {
 /**
 * @dev TODO
 */
-contract BaseTokenManagementExtension is TokenManagementInterface {
+contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAdapter {
     uint constant OK = 1;
     uint constant UNAUTHORIZED = 0;
     uint constant ERROR_TOKEN_EXTENSION_ASSET_TOKEN_EXISTS = 23001;
@@ -63,7 +64,6 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
 
     event Error(address indexed self, uint errorCode);
     event AssetCreated(address indexed self, address platform, bytes32 symbol, address token);
-    event AssetOwnershipClaimRequired(address indexed self, address asset, address owner);
     event CrowdsaleCampaignCreated(address indexed self, address platform, bytes32 symbol, address campaign);
     event CrowdsaleCampaignRemoved(address indexed self, address platform, bytes32 symbol, address campaign);
 
@@ -108,7 +108,32 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
         return OK;
     }
 
-    function createAssetWithoutFee(bytes32 _symbol, string _name, string _description, uint _value, uint8 _decimals, bool _isMint) onlyPlatformOwner public returns (uint resultCode) {
+    function createAssetWithoutFee(
+        bytes32 _symbol,
+        string _name,
+        string _description,
+        uint _value,
+        uint8 _decimals,
+        bool _isMint)
+    onlyPlatformOwner
+    public
+    returns (uint resultCode)
+    {
+        return _createAssetWithoutFee(_symbol, _name, _description, _value, _decimals, _isMint, [uint(0)]);
+    }
+
+    function _createAssetWithoutFee(
+        bytes32 _symbol,
+        string _name,
+        string _description,
+        uint _value,
+        uint8 _decimals,
+        bool _isMint,
+        uint[1] memory _result)
+    featured(_result)
+    private
+    returns (uint resultCode)
+    {
         require(_symbol != bytes32(0));
 
         resultCode = _prepareAndIssueAssetOnPlatform(_symbol, _name, _description, _value, _decimals, _isMint);
@@ -116,43 +141,74 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
             return _emitError(resultCode);
         }
 
-        TokenFactory _factory = lookupFactoryProvider().getTokenFactory();
-        address _asset = _createAsset(_factory);
+        address _asset = _createAsset(getTokenFactory());
 
         address _token;
-        (_token, resultCode) = _bindAssetWithToken(_factory, _asset, _symbol, _name, _value, _decimals);
+        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals);
         if (resultCode != OK) {
-            return _emitError(resultCode);
+            revert();
         }
 
         AssetCreated(this, platform, _symbol, _token);
+
+        _result[0] = OK;
         return OK;
     }
 
-    function createAssetWithFee(bytes32 _symbol, string _name, string _description, uint _value, uint8 _decimals, bool _isMint, address _feeAddress, uint32 _feePercent) onlyPlatformOwner public returns (uint resultCode) {
+    function createAssetWithFee(
+        bytes32 _symbol,
+        string _name,
+        string _description,
+        uint _value,
+        uint8 _decimals,
+        bool _isMint,
+        address _feeAddress,
+        uint32 _feePercent)
+    onlyPlatformOwner
+    public
+    returns (uint resultCode) {
+        return _createAssetWithFee(_symbol, _name, _description, _value, _decimals,_isMint, _feeAddress, _feePercent, [uint(0)]);
+    }
+
+    function _createAssetWithFee(
+        bytes32 _symbol,
+        string _name,
+        string _description,
+        uint _value,
+        uint8 _decimals,
+        bool _isMint,
+        address _feeAddress,
+        uint32 _feePercent,
+        uint[1] memory _result)
+    featured(_result)
+    private
+    returns (uint resultCode)
+    {
         require(_symbol != bytes32(0));
         require(_feeAddress != 0x0);
-        require(_feePercent != 0);
 
         resultCode = _prepareAndIssueAssetOnPlatform(_symbol, _name, _description, _value, _decimals, _isMint);
         if (resultCode != OK) {
             return _emitError(resultCode);
         }
 
-        TokenFactory _factory = lookupFactoryProvider().getTokenFactory();
-        address _asset = _createAssetWithFee(_factory, _feeAddress, _feePercent);
+        address _asset = _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent);
 
         address _token;
-        (_token, resultCode) = _bindAssetWithToken(_factory, _asset, _symbol, _name, _value, _decimals);
+        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals);
         if (resultCode != OK) {
-            return _emitError(resultCode);
+            revert();
         }
 
-        AssetOwnershipClaimRequired(this, _asset, msg.sender);
         AssetCreated(this, platform, _symbol, _token);
+
+        _result[0] = OK;
         return OK;
     }
 
+    function getTokenFactory() constant returns (TokenFactory) {
+        return FactoryProvider(lookupManager("AssetsManager")).getTokenFactory();
+    }
 
     /**
     * Creates crowdsale campaign of a token with provided symbol
@@ -161,13 +217,27 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
     *
     * @return result code of an operation
     */
-    function createCrowdsaleCampaign(bytes32 _symbol, bytes32 _crowdsaleFactoryName) public returns (uint) {
-        ChronoBankAssetOwnershipManager _assetOwnershipManager = ChronoBankAssetOwnershipManager(getAssetOwnershipManager());
-        if (!_assetOwnershipManager.hasAssetRights(msg.sender, _symbol)) {
-            return _emitError(UNAUTHORIZED);
-        }
+    function createCrowdsaleCampaign(bytes32 _symbol, bytes32 _crowdsaleFactoryName)
+    onlyPlatformOwner
+    public
+    returns (uint)
+    {
+        return _createCrowdsaleCampaign(_symbol, _crowdsaleFactoryName, [uint(0)]);
+    }
 
-        CrowdsaleManager crowdsaleManager = CrowdsaleManager(lookupService("CrowdsaleManager"));
+    function _createCrowdsaleCampaign(
+        bytes32 _symbol,
+        bytes32 _crowdsaleFactoryName,
+        uint[1] memory _result)
+    featured(_result)
+    private
+    returns (uint)
+    {
+        require(_symbol != 0x0);
+        require(_crowdsaleFactoryName != 0x0);
+
+        ChronoBankAssetOwnershipManager _assetOwnershipManager = ChronoBankAssetOwnershipManager(getAssetOwnershipManager());
+        CrowdsaleManager crowdsaleManager = CrowdsaleManager(lookupManager("CrowdsaleManager"));
 
         var (_crowdsale, result) = crowdsaleManager.createCrowdsale(msg.sender, _symbol, _crowdsaleFactoryName);
         if (result != OK) {
@@ -176,10 +246,12 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
 
         result = _assetOwnershipManager.addAssetPartOwner(_symbol, _crowdsale);
         if (result != OK) {
-            return _emitError(result);
+            revert();
         }
 
         CrowdsaleCampaignCreated(this, platform, _symbol, _crowdsale);
+
+        _result[0] = OK;
         return OK;
     }
 
@@ -190,14 +262,11 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
     *
     * @return result result code of an operation
     */
-    function deleteCrowdsaleCampaign(address _crowdsale) public returns (uint result) {
+    function deleteCrowdsaleCampaign(address _crowdsale) onlyPlatformOwner public returns (uint result) {
         bytes32 _symbol = BaseCrowdsale(_crowdsale).getSymbol();
         ChronoBankAssetOwnershipManager _assetOwnershipManager = ChronoBankAssetOwnershipManager(getAssetOwnershipManager());
-        if (!_assetOwnershipManager.hasAssetRights(msg.sender, _symbol)) {
-            return _emitError(UNAUTHORIZED);
-        }
 
-        CrowdsaleManager crowdsaleManager = CrowdsaleManager(lookupService("CrowdsaleManager"));
+        CrowdsaleManager crowdsaleManager = CrowdsaleManager(lookupManager("CrowdsaleManager"));
 
         result = crowdsaleManager.deleteCrowdsale(_crowdsale);
         if (result != OK) {
@@ -217,7 +286,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
     * @dev TODO
     */
     function _prepareAndIssueAssetOnPlatform(bytes32 _symbol, string _name, string _description, uint _value, uint8 _decimals, bool _isMint) private returns (uint) {
-        ERC20ManagerInterface _erc20Manager = ERC20ManagerInterface(lookupService("ERC20Manager"));
+        ERC20ManagerInterface _erc20Manager = ERC20ManagerInterface(lookupManager("ERC20Manager"));
         if (_erc20Manager.getTokenAddressBySymbol(_symbol) != 0x0) {
             return ERROR_TOKEN_EXTENSION_ASSET_TOKEN_EXISTS;
         }
@@ -237,7 +306,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
         }
 
         ChronoBankAssetOwnershipManager _assetOwnershipManager = ChronoBankAssetOwnershipManager(getAssetOwnershipManager());
-        ChronoBankAssetProxyInterface(token).init(platform, bytes32ToString(_symbol), _name);
+        ChronoBankAssetProxyInterface(token).init(platform, StringsLib.bytes32ToString(_symbol), _name);
         ChronoBankAssetProxyInterface(token).proposeUpgrade(_asset);
         ChronoBankAsset(_asset).init(ChronoBankAssetProxyInterface(token));
         _assetCreationSetupFinished(_symbol, platform, token, msg.sender);
@@ -250,15 +319,16 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
 
         errorCode = _addToken(token, _symbol, _decimals);
         if (errorCode != OK) {
-            return (0x0, errorCode);
+            revert();
         }
+        
         return (token, OK);
     }
 
     /**
     * @dev TODO
     */
-    function _createAssetWithFee(TokenFactory _factory, address _feeAddress, uint32 _fee) private returns (address _asset) {
+    function _deployAssetWithFee(TokenFactory _factory, address _feeAddress, uint32 _fee) private returns (address _asset) {
         _asset = _factory.createAssetWithFee(this);
         OwnedInterface(_asset).claimContractOwnership();
         FeeInterface(_asset).setupFee(_feeAddress, _fee);
@@ -283,43 +353,18 @@ contract BaseTokenManagementExtension is TokenManagementInterface {
     * @return errorCode result code of an operation
     */
     function _addToken(address token, bytes32 symbol, uint8 decimals) private returns (uint errorCode) {
-        ERC20ManagerInterface erc20Manager = ERC20ManagerInterface(lookupService("ERC20Manager"));
+        ERC20ManagerInterface erc20Manager = ERC20ManagerInterface(lookupManager("ERC20Manager"));
         errorCode = erc20Manager.addToken(token, bytes32(0), symbol, bytes32(0), decimals, bytes32(0), bytes32(0));
     }
 
     /**
     * @dev TODO
     */
-    function lookupService(bytes32 _identifier) internal constant returns (address manager) {
+    function lookupManager(bytes32 _identifier) constant returns (address manager) {
         manager = ContractsManagerInterface(serviceProvider).getContractAddressByType(_identifier);
         if (manager == 0x0) {
             revert();
         }
-    }
-
-    /**
-    * @dev TODO
-    */
-    function lookupFactoryProvider() internal constant returns (FactoryProvider) {
-        return FactoryProvider(lookupService("AssetsManager"));
-    }
-
-    // TODO: ahiatsevich - move to library
-    function bytes32ToString(bytes32 x) private constant returns (string) {
-        bytes memory bytesString = new bytes(32);
-        uint charCount = 0;
-        for (uint j = 0; j < 32; j++) {
-            byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
-            if (char != 0) {
-                bytesString[charCount] = char;
-                charCount++;
-            }
-        }
-        bytes memory bytesStringTrimmed = new bytes(charCount);
-        for (j = 0; j < charCount; j++) {
-            bytesStringTrimmed[j] = bytesString[j];
-        }
-        return string(bytesStringTrimmed);
     }
 
     /**

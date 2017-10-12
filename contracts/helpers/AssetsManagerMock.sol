@@ -43,7 +43,7 @@ contract AssetsManagerMock is AssetsManagerInterface {
     }
 
     function addAsset(address asset, bytes32 _symbol, address owner) returns (bool) {
-        if (assets[_symbol] == 0) {
+        if (assets[_symbol] == 0x0) {
             symbols.push(_symbol);
             assets[_symbol] = asset;
             return true;

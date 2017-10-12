@@ -171,6 +171,8 @@ const errorsLibrary = {
     TOKEN_EXTENSION_SENDER_DOES_NOT_SUPPORT_ASSET_FALLBACK: errorScope.tokenextension + 53,
     TOKEN_EXTENSION_CANNOT_PASS_ASSET_OWNERSHIP: errorScope.tokenextension + 54,
     TOKEN_EXTENSION_CANNOT_CLAIM_ASSET_OWNERSHIP: errorScope.tokenextension + 55,
+
+    FEATURE_IS_UNAVAILABE: 22000,
 }
 
 module.exports = errorsLibrary

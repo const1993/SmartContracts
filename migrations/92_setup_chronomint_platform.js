@@ -8,10 +8,9 @@ const BaseTokenManagementExtension = artifacts.require('./BaseTokenManagementExt
 const LOCWallet = artifacts.require('./LOCWallet.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 
+// already unnecessary
 module.exports = function(deployer, network, accounts) {
-    if (network === 'main' || network === 'ropsten') {
-        return
-    }
+    return;
 
     //----------
     const LHT_SYMBOL = 'LHT'
@@ -33,9 +32,9 @@ module.exports = function(deployer, network, accounts) {
     .then(() => ERC20Manager.deployed())
     .then(_manager => erc20Manager = _manager)
     .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-    .then(_platformAddr => {
+    .then(_platformMeta => {
         return Promise.resolve()
-        .then(() => assetsManager.getTokenExtension.call(_platformAddr))
+        .then(() => assetsManager.getTokenExtension.call(_platformMeta[0]))
         .then(_tokenExtensionAddr => BaseTokenManagementExtension.at(_tokenExtensionAddr))
         .then(_tokenExtension => tokenExtension = _tokenExtension)
         .then(() => tokenExtension.createAssetWithFee(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE))

@@ -22,12 +22,8 @@ contract("PlatformsManager", function (accounts) {
     }
 
     const getAllPlatformsForUser = async (user) => {
-        var platforms = []
-        var platformsCount = await Setup.platformsManager.getPlatformsForUserCount.call(user)
-        for (var platformsIdx = 0; platformsIdx < platformsCount; ++platformsIdx) {
-            platforms.push(await Setup.platformsManager.getPlatformForUserAtIndex.call(user, platformsIdx))
-        }
-        return platforms
+        var platformsMetas = await Setup.platformsManager.getPlatformsMetadataForUser.call(user)
+        return platformsMetas[0]
     }
 
     before("setup", function(done) {
@@ -43,14 +39,14 @@ contract("PlatformsManager", function (accounts) {
         let owner = owner1
 
         it("should create platforms on request even if an user already has some in ownership", async () => {
-            let createPlatformTx = await Setup.platformsManager.createPlatform({ from: owner })
+            let createPlatformTx = await Setup.platformsManager.createPlatform("default", { from: owner })
             let createPlatformEvent = eventsHelper.extractEvents(createPlatformTx, "PlatformRequested")[0]
             assert.isDefined(createPlatformEvent)
 
             let platform = await ChronoBankPlatform.at(createPlatformEvent.args.platform)
             await platform.claimContractOwnership({ from: owner })
 
-            let secondCreatePlatformTx = await Setup.platformsManager.createPlatform({ from: owner })
+            let secondCreatePlatformTx = await Setup.platformsManager.createPlatform("default1", { from: owner })
             let secondCreatePlatformEvent = eventsHelper.extractEvents(secondCreatePlatformTx, "PlatformRequested")[0]
             assert.isDefined(secondCreatePlatformEvent)
 
@@ -63,7 +59,7 @@ contract("PlatformsManager", function (accounts) {
             let emptyPlatformsCount = await Setup.platformsManager.getPlatformsForUserCount.call(owner)
             assert.equal(emptyPlatformsCount, 0)
 
-            let createPlatformTx = await Setup.platformsManager.createPlatform({ from: owner })
+            let createPlatformTx = await Setup.platformsManager.createPlatform("default", { from: owner })
             let createPlatformEvent = eventsHelper.extractEvents(createPlatformTx, "PlatformRequested")[0]
             assert.isDefined(createPlatformEvent)
             assert.notEqual(createPlatformEvent.args.tokenExtension, 0x0)
@@ -84,21 +80,24 @@ contract("PlatformsManager", function (accounts) {
 
         it("should be able to attach a platform that is not registered by platform owner", async () => {
             platform = await createPlatform(owner)
-            let attachPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, { from: owner })
+            let attachPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, "default", { from: owner })
             assert.equal(attachPlatformResultCode, ErrorsEnum.OK)
         })
 
         it("should not be able to attach a platform by non-contract (PlatformsManager) owner", async () => {
-            let attachPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, { from: systemOwner })
+            let attachPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, "default", { from: systemOwner })
             assert.equal(attachPlatformResultCode, ErrorsEnum.UNAUTHORIZED)
         })
 
-        it("should not be able to attach a platform that is already attached", async () => {
-            let attachPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, { from: owner })
-            assert.equal(attachPlatformResultCode, ErrorsEnum.OK)
-            await Setup.platformsManager.attachPlatform(platform.address, { from: owner })
+        it("revert", reverter.revert)
 
-            let failedPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, { from: owner })
+        it("should not be able to attach a platform that is already attached", async () => {
+            platform = await createPlatform(owner)
+            let attachPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, "default", { from: owner })
+            assert.equal(attachPlatformResultCode, ErrorsEnum.OK)
+            await Setup.platformsManager.attachPlatform(platform.address, "default", { from: owner })
+
+            let failedPlatformResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, "default", { from: owner })
             assert.equal(failedPlatformResultCode, ErrorsEnum.PLATFORMS_ATTACHING_PLATFORM_ALREADY_EXISTS)
         })
 
@@ -117,9 +116,9 @@ contract("PlatformsManager", function (accounts) {
         })
 
         it("should not be able to detach a platform by non-owner of a platform", async () => {
-            let successAttachResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, { from: owner })
+            let successAttachResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, "default", { from: owner })
             assert.equal(successAttachResultCode, ErrorsEnum.OK)
-            await Setup.platformsManager.attachPlatform(platform.address, { from: owner })
+            await Setup.platformsManager.attachPlatform(platform.address, "default", { from: owner })
 
             let failedDetachResultCode = await Setup.platformsManager.detachPlatform.call(platform.address, { from: nonOwner })
             assert.equal(failedDetachResultCode, ErrorsEnum.UNAUTHORIZED)
@@ -146,9 +145,9 @@ contract("PlatformsManager", function (accounts) {
 
         it("prepare", async () => {
             platform = await createPlatform(otherOwner)
-            let successAttachResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, { from: otherOwner })
+            let successAttachResultCode = await Setup.platformsManager.attachPlatform.call(platform.address, "default", { from: otherOwner })
             assert.equal(successAttachResultCode, ErrorsEnum.OK)
-            await Setup.platformsManager.attachPlatform(platform.address, { from: otherOwner })
+            await Setup.platformsManager.attachPlatform(platform.address, "default", { from: otherOwner })
         })
         it("snapshot", reverter.snapshot)
 
@@ -198,11 +197,12 @@ contract("PlatformsManager", function (accounts) {
         let owner = owner1
         let nonOwner = owner2
         let platform
+        let platformName = 'default'
 
 
         it("prepare", async () => {
             platform = await createPlatform(owner)
-            let attachTx = await Setup.platformsManager.attachPlatform(platform.address, { from: owner })
+            let attachTx = await Setup.platformsManager.attachPlatform(platform.address, platformName, { from: owner })
             let event = eventsHelper.extractEvents(attachTx, "PlatformAttached")[0]
             assert.isDefined(event)
         })
@@ -218,6 +218,26 @@ contract("PlatformsManager", function (accounts) {
             assert.lengthOf(noPlatformAddresses, 0)
         })
 
+        it("should return saved name for a platform", async () => {
+            let gotPlatformMeta = await Setup.platformsManager.getPlatformForUserAtIndex.call(owner, 0)
+            assert.equal(gotPlatformMeta[0], platform.address)
+            assert.equal(web3.toAscii(gotPlatformMeta[1]).replace(/\0/g, ''), platformName)
+        })
+
+        it("should be able to update platform's title", async () => {
+            let newPlatformName = "new Platform"
+
+            let successNameUpdateResultCode = await Setup.platformsManager.setPlatformMetadata.call(platform.address, newPlatformName, { from: owner })
+            assert.equal(successNameUpdateResultCode, ErrorsEnum.OK)
+
+            await Setup.platformsManager.setPlatformMetadata(platform.address, newPlatformName, { from: owner })
+
+            let gotPlatformMeta = await Setup.platformsManager.getPlatformForUserAtIndex.call(owner, 0)
+            assert.equal(gotPlatformMeta[0], platform.address)
+            assert.equal(web3.toAscii(gotPlatformMeta[1]).replace(/\0/g, ''), newPlatformName)
+        })
+
+
         it('revert', function (done) {
             reverter.revert(done, reverter.snapshotId - 1)
         })
@@ -231,7 +251,7 @@ contract("PlatformsManager", function (accounts) {
         let totalTokensBalance = 1000
 
         it("prepare", async () => {
-            let createPlatformTx = await Setup.platformsManager.createPlatform({ from: owner })
+            let createPlatformTx = await Setup.platformsManager.createPlatform("default", { from: owner })
             let event = eventsHelper.extractEvents(createPlatformTx, "PlatformRequested")[0]
             assert.isDefined(event)
 

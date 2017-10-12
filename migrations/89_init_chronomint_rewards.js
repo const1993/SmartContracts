@@ -6,7 +6,10 @@ const MultiEventsHistory = artifacts.require("./MultiEventsHistory.sol");
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 
+// already unnecessary
 module.exports = function (deployer, network) {
+    return;
+
     deployer
     .then(() => StorageManager.deployed())
     .then(_storageManager => _storageManager.giveAccess(Rewards.address, "Deposits"))

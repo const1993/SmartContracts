@@ -7,10 +7,6 @@ const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 
 module.exports = function(deployer, network, accounts) {
-    if (network === 'kovan') {
-        return
-    }
-
     //----------
     const LHT_SYMBOL = 'LHT'
     const LHT_NAME = 'Labour-hour Token'
@@ -29,9 +25,9 @@ module.exports = function(deployer, network, accounts) {
     .then(() => AssetsManager.deployed())
     .then(_manager => assetsManager = _manager)
 
-    .then(() => platformsManager.createPlatform())
+    .then(() => platformsManager.createPlatform("Platform"))
     .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-    .then(_platformAddr => platformAddr = _platformAddr)
+    .then(_platformMeta => platformAddr = _platformMeta[0])
     .then(() => assetsManager.getTokenExtension.call(platformAddr))
     .then(_tokenExtensionAddr => BaseTokenManagementExtension.at(_tokenExtensionAddr))
     .then(_tokenExtension => tokenExtension = _tokenExtension)

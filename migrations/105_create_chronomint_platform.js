@@ -8,8 +8,5 @@ module.exports = function(deployer, network, accounts) {
     deployer
     .then(() => PlatformsManager.deployed())
     .then(_manager => platformsManager = _manager)
-    .then(() => platformsManager.createPlatform())
-    .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-    .then(_platformAddr => ChronoBankPlatform.at(_platformAddr))
-    .then(_platform => _platform.claimContractOwnership())
+    .then(() => platformsManager.createPlatform("Platform"))
 }

@@ -4,10 +4,9 @@ const ERC20Manager = artifacts.require('./ERC20Manager.sol')
 const Rewards = artifacts.require('./Rewards.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 
+// already unnecessary
 module.exports = function(deployer, network, accounts) {
-    if (network === 'main' || network === 'ropsten') {
-        return
-    }
+    return;
 
     const systemOwner = accounts[0]
 
@@ -20,6 +19,6 @@ module.exports = function(deployer, network, accounts) {
     .then(_rewards => {
         return Promise.resolve()
         .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-        .then(_platformAddr => _rewards.init(ContractsManager.address, RewardsWallet.address, _platformAddr, 0))
+        .then(_platformMeta => _rewards.init(ContractsManager.address, RewardsWallet.address, _platformMeta[0], 0))
     })
 }

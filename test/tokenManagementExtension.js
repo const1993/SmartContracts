@@ -47,7 +47,7 @@ contract("TokenManagementExtension", function(accounts) {
         let tokenExtension
 
         it("prepare", async () => {
-            let newPlatformTx = await Setup.platformsManager.createPlatform({ from: owner })
+            let newPlatformTx = await Setup.platformsManager.createPlatform("default", { from: owner })
             let event = eventsHelper.extractEvents(newPlatformTx, "PlatformRequested")[0]
             assert.isDefined(event)
             assert.notEqual(event.args.tokenExtension, zeroAddress)
@@ -80,11 +80,6 @@ contract("TokenManagementExtension", function(accounts) {
             let assetCreationTx  = await tokenExtension.createAssetWithFee(TOKEN_WITH_FEE_SYMBOL, TOKEN_WITH_FEE_NAME, TOKEN_WITH_FEE_DESCRIPTION, 0, 5, true, RewardsWallet.address, 10, { from: owner })
             let event = eventsHelper.extractEvents(assetCreationTx, "AssetCreated")[0]
             assert.isDefined(event)
-
-            let claimAssetOwnershipEvent = eventsHelper.extractEvents(assetCreationTx, "AssetOwnershipClaimRequired")[0]
-            assert.isDefined(claimAssetOwnershipEvent)
-            let assetWithFee = await ChronoBankAssetWithFee.at(claimAssetOwnershipEvent.args.asset)
-            await assetWithFee.claimContractOwnership({ from: owner })
 
             let isSymbolCreated = await platform.isCreated.call(TOKEN_WITH_FEE_SYMBOL)
             assert.isOk(isSymbolCreated)

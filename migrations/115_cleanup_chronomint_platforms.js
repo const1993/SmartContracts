@@ -7,8 +7,6 @@ const LOCWallet = artifacts.require('./LOCWallet.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 
 module.exports = function(deployer, network, accounts) {
-    return;
-
     //----------
     const LHT_SYMBOL = 'LHT'
 
@@ -25,21 +23,8 @@ module.exports = function(deployer, network, accounts) {
         var platforms = []
 
         return Promise.resolve()
-        .then(() => platformsManager.getPlatformsForUserCount.call(systemOwner))
-        .then(_platformsCount => {
-            var platformsPromise = Promise.resolve()
-
-            for (var platformIdx = 0; platformIdx < _platformsCount; ++platformIdx) {
-                (function() {
-                    let idx = platformIdx
-                    platformsPromise = platformsPromise
-                    .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, idx))
-                    .then(_addr => platforms.push(_addr))
-                })()
-            }
-
-            return platformsPromise
-        })
+        .then(() => platformsManager.getPlatformsMetadataForUser.call(systemOwner))
+        .then(_platformsMetas => platforms = _platformsMetas[0])
         .then(() => {
             return Promise.resolve()
             .then(() => {

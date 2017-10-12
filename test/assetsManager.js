@@ -51,7 +51,7 @@ contract('Assets Manager', function(accounts) {
             let platform
 
             it("prepare", async () => {
-                let successRequestPlatfortTx = await Setup.platformsManager.createPlatform({ from: owner })
+                let successRequestPlatfortTx = await Setup.platformsManager.createPlatform("default", { from: owner })
                 let event = eventsHelper.extractEvents(successRequestPlatfortTx, "PlatformRequested")[0]
                 assert.isDefined(event)
                 platform = await ChronoBankPlatform.at(event.args.platform)

@@ -2,10 +2,9 @@ const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const ERC20Manager = artifacts.require('./ERC20Manager.sol')
 const AssetsManager = artifacts.require('./AssetsManager.sol')
 
+// already unnecessary
 module.exports = function(deployer, network, accounts) {
-    if (network === 'main') {
-        return
-    }
+    return;
 
     const systemOwner = accounts[0]
 
@@ -18,15 +17,8 @@ module.exports = function(deployer, network, accounts) {
     .then(_manager => assetsManager = _manager)
     .then(() => {
         return Promise.resolve()
-        .then(() => platformsManager.getPlatformForUser.call(systemOwner))
-        .then(_addr => {
-            if (_addr == 0) {
-                return Promise.resolve()
-                .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-            }
-
-            return _addr
-        })
+        .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
+        .then(_platformMeta => _platformMeta[0])
     })
     .then(_addr => platformAddress = _addr)
     .then(() => {

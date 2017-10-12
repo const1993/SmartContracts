@@ -28,20 +28,21 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
     uint constant ERROR_PLATFORMS_ATTACHING_PLATFORM_ALREADY_EXISTS = 21001;
     uint constant ERROR_PLATFORMS_PLATFORM_DOES_NOT_EXIST = 21002;
     uint constant ERROR_PLATFORMS_INCONSISTENT_INTERNAL_STATE = 21003;
+    uint constant ERROR_PLATFORMS_UPDATE_PLATFORM_METADATA_THE_SAME_NAME = 21004;
 
     /** Storage keys */
 
     /** TODO */
     StorageInterface.Address platformsFactory;
 
-    /** * @dev DEPRECATED. Will be removed in next release */
-    StorageInterface.AddressAddressMapping ownerToPlatform;
-
     /** TODO */
     StorageInterface.AddressesSetMapping ownerToPlatforms;
 
     /** TODO */
     StorageInterface.OrderedAddressesSet platforms;
+
+    /** TODO */
+    StorageInterface.AddressBytes32Mapping platformToName;
 
     /**
     * @dev TODO
@@ -63,9 +64,9 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
 
     function PlatformsManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) {
         platformsFactory.init("platformsFactory");
-        ownerToPlatform.init("ownerToPlatform");
         ownerToPlatforms.init("ownerToPlatforms");
         platforms.init("platforms");
+        platformToName.init("platformToName");
     }
 
     function init(address _contractsManager, address _platformsFactory) onlyContractOwner public returns (uint) {
@@ -76,18 +77,16 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
         return OK;
     }
 
-    /**
-    * @dev TODO DEPRECATED. Will be removed in next release
-    */
-    function getPlatformForUser(address _user) public constant returns (address) {
-        return store.get(ownerToPlatform, _user);
+    function getPlatformName(address _platform) public constant returns (bytes32 _name) {
+        _name = store.get(platformToName, _platform);
     }
 
     /**
     * @dev TODO
     */
-    function getPlatformForUserAtIndex(address _user, uint _idx) public constant returns (address) {
-        return store.get(ownerToPlatforms, bytes32(_user), _idx);
+    function getPlatformForUserAtIndex(address _user, uint _idx) public constant returns (address _platform, bytes32 _name) {
+        _platform = store.get(ownerToPlatforms, bytes32(_user), _idx);
+        _name = store.get(platformToName, _platform);
     }
 
     /**
@@ -100,12 +99,35 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
     /**
     * @dev TODO
     */
-    function attachPlatform(address _platform) onlyPlatformOwner(_platform) public returns (uint resultCode) {
+    function getPlatformsMetadataForUser(address _user) public constant returns (address[] _platforms, bytes32[] _names) {
+        _platforms = store.get(ownerToPlatforms, bytes32(_user));
+        _names = new bytes32[](_platforms.length);
+        for (uint _platformIdx = 0; _platformIdx < _platforms.length; ++_platformIdx) {
+            _names[_platformIdx] = store.get(platformToName, _platforms[_platformIdx]);
+        }
+    }
+
+    /**
+    * @dev TODO
+    */
+    function setPlatformMetadata(address _platform, bytes32 _name) onlyPlatformOwner(_platform) public returns (uint) {
+        if (store.get(platformToName, _platform) == _name) {
+            return _emitError(ERROR_PLATFORMS_UPDATE_PLATFORM_METADATA_THE_SAME_NAME);
+        }
+
+        store.set(platformToName, _platform, _name);
+        return OK;
+    }
+
+    /**
+    * @dev TODO
+    */
+    function attachPlatform(address _platform, bytes32 _name) onlyPlatformOwner(_platform) public returns (uint resultCode) {
         if (store.includes(platforms, _platform)) {
             return _emitError(ERROR_PLATFORMS_ATTACHING_PLATFORM_ALREADY_EXISTS);
         }
 
-        _attachPlatformWithoutValidation(_platform, OwnedContract(_platform).contractOwner());
+        _attachPlatformWithoutValidation(_platform, _name, OwnedContract(_platform).contractOwner());
         _emitPlatformAttached(_platform);
         return OK;
     }
@@ -126,6 +148,7 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
 
         store.remove(ownerToPlatforms, bytes32(_owner), _platform);
         store.remove(platforms, _platform);
+        store.set(platformToName, _platform, bytes32(0));
 
         _emitPlatformDetached(_platform);
         return OK;
@@ -146,10 +169,10 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
     /**
     * @dev TODO
     */
-    function createPlatform() public returns (uint resultCode) {
+    function createPlatform(bytes32 _name) public returns (uint resultCode) {
         PlatformsFactory factory = PlatformsFactory(store.get(platformsFactory));
         address _platform = factory.createPlatform(msg.sender);
-        _attachPlatformWithoutValidation(_platform, msg.sender);
+        _attachPlatformWithoutValidation(_platform, _name, msg.sender);
 
         AssetsManagerInterface assetsManager = AssetsManagerInterface(lookupManager("AssetsManager"));
         resultCode = assetsManager.requestTokenExtension(_platform);
@@ -167,11 +190,15 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
     /**
     * @dev TODO private
     */
-    function _attachPlatformWithoutValidation(address _platform, address _owner) private {
+    function _attachPlatformWithoutValidation(address _platform, bytes32 _name, address _owner) private {
         store.add(ownerToPlatforms, bytes32(_owner), _platform);
         store.add(platforms, _platform);
+        store.set(platformToName, _platform, _name);
     }
 
+    /**
+    * @dev TODO private
+    */
     function _isPlatformOwner(address _platform) private constant returns (bool) {
         return OwnedContract(_platform).contractOwner() == msg.sender;
     }

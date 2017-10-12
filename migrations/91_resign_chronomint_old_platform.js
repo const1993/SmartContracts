@@ -5,7 +5,10 @@ const ERC20Manager = artifacts.require('./ERC20Manager.sol')
 const AssetsManager = artifacts.require('./AssetsManager.sol')
 const ErrorsEnum = require('../common/errors')
 
+// already unnecessary
 module.exports = function(deployer, network, accounts) {
+    return;
+
     const LHT_SYMBOL = 'LHT'
 
     const systemOwner = accounts[0]
@@ -34,10 +37,7 @@ module.exports = function(deployer, network, accounts) {
     .then(() => {
     if (!(network === 'main' || network === 'ropsten')) {
         return Promise.resolve()
-        .then(() => platformsManager.createPlatform())
-        .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-        .then(_platformAddr => ChronoBankPlatform.at(_platformAddr))
-        .then(_platform => _platform.claimContractOwnership())
+        .then(() => platformsManager.createPlatform("Platform"))
     }
     })
     .then(() => ERC20Manager.deployed())

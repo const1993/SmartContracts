@@ -17,7 +17,7 @@ module.exports = function (deployer, network, accounts) {
         return Promise.resolve()
         .then(() => PlatformsManager.deployed())
         .then(_platformsManager => _platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-        .then(_platformAddr => _manager.init(ContractsManager.address, RewardsWallet.address, _platformAddr, 0))
+        .then(_platformMeta => _manager.init(ContractsManager.address, RewardsWallet.address, _platformMeta[0], 0))
     })
     .then(() => MultiEventsHistory.deployed())
     .then(_history => _history.authorize(Rewards.address))

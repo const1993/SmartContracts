@@ -150,6 +150,32 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
     /**
     * @dev TODO
     */
+    function requestTokenExtension(address _platform) public returns (uint) {
+        address _tokenExtension = getTokenExtension(_platform);
+        if (_tokenExtension != 0x0) {
+            _emitTokenExtensionRequested(_platform, _tokenExtension);
+            return OK;
+        }
+
+        TokenExtensionsFactory _extensionsFactory = TokenExtensionsFactory(store.get(tokenExtensionFactory));
+        _tokenExtension = _extensionsFactory.createTokenExtension(_platform);
+        store.set(platformToExtension, _platform, _tokenExtension);
+        store.add(tokenExtensions, _tokenExtension);
+
+        _emitTokenExtensionRequested(_platform, _tokenExtension);
+        return OK;
+    }
+
+    /**
+    * @dev TODO
+    */
+    function getTokenExtension(address _platform) public constant returns (address) {
+        return store.get(platformToExtension, _platform);
+    }
+
+    /**
+    * @dev TODO
+    */
     function isAssetOwner(bytes32 _symbol, address _user) public constant returns (bool) {
         address _token = getAssetBySymbol(_symbol);
         address _platform = ChronoBankAssetProxyInterface(_token).chronoBankPlatform();
@@ -253,27 +279,44 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
     /**
     * @dev TODO
     */
-    function requestTokenExtension(address _platform) public returns (uint) {
-        address _tokenExtension = getTokenExtension(_platform);
-        if (_tokenExtension != 0x0) {
-            _emitTokenExtensionRequested(_platform, _tokenExtension);
-            return OK;
+    function getManagersForPlatform(address _platform) public constant returns (address[] _managers) {
+        ChronoBankManagersRegistry _managersRegistry = ChronoBankManagersRegistry(_platform);
+        uint _managersCount = _managersRegistry.holdersCount();
+        uint _managerPointer = 0;
+        uint _assetsCount = ChronoBankPlatformInterface(_platform).symbolsCount();
+        _managers = new address[](_managersCount);
+        for (uint _managerIdx = 0; _managerIdx <= _managersCount; ++_managerIdx) {
+            address _manager = _managersRegistry.holders(_managerIdx);
+
+            if (containsTokenExtension(_manager)) {
+                continue;
+            }
+
+            for (uint _assetIdx = 0; _assetIdx < _assetsCount; ++_assetIdx) {
+                bytes32 _symbol = ChronoBankPlatformInterface(_platform).symbols(_assetIdx);
+
+                if (ChronoBankAssetOwnershipManager(_platform).hasAssetRights(_manager, _symbol)) {
+                    _managers[_managerPointer++] = _manager;
+                    break;
+                }
+            }
         }
-
-        TokenExtensionsFactory _extensionsFactory = TokenExtensionsFactory(store.get(tokenExtensionFactory));
-        _tokenExtension = _extensionsFactory.createTokenExtension(_platform);
-        store.set(platformToExtension, _platform, _tokenExtension);
-        store.add(tokenExtensions, _tokenExtension);
-
-        _emitTokenExtensionRequested(_platform, _tokenExtension);
-        return OK;
     }
 
     /**
     * @dev TODO
     */
-    function getTokenExtension(address _platform) public constant returns (address) {
-        return store.get(platformToExtension, _platform);
+    function getManagers(address _owner) public constant returns (address[] _managers) {
+        PlatformsManagerInterface _platformsManager = PlatformsManagerInterface(lookupManager("PlatformsManager"));
+        uint _platformsCount = _platformsManager.getPlatformsForUserCount(_owner);
+        _managers = new address[](_numberOfManagers(_owner));
+        uint _managersPointer = 0;
+        address[] memory _platformManagers;
+        for (uint _platformIdx = 0; _platformIdx < _platformsCount; ++_platformIdx) {
+            var (_platform,) = _platformsManager.getPlatformForUserAtIndex(_owner, _platformIdx);
+            _platformManagers = getManagersForPlatform(_platform);
+            _managersPointer = _copyArrayIntoArray(_platformManagers, _managers, _managersPointer);
+        }
     }
 
     /** Helper functions */
@@ -293,6 +336,29 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
             _countAssets[_platformIdx] = getAssetsForOwnerCount(_platforms[_platformIdx], _owner);
             _totalAssetsCount += _countAssets[_platformIdx];
         }
+    }
+
+    /**
+    * @dev TODO
+    */
+    function _numberOfManagers(address _owner) private constant returns (uint _count) {
+        PlatformsManagerInterface _platformsManager = PlatformsManagerInterface(lookupManager("PlatformsManager"));
+        uint _platformsCount = _platformsManager.getPlatformsForUserCount(_owner);
+
+        for (uint _platformIdx = 0; _platformIdx < _platformsCount; ++_platformIdx) {
+            var (_platform,) = _platformsManager.getPlatformForUserAtIndex(_owner, _platformIdx);
+            _count += ChronoBankManagersRegistry(_platform).holdersCount();
+        }
+    }
+
+    /**
+    * @dev TODO
+    */
+    function _copyArrayIntoArray(address[] _origin, address[] _destination, uint _pointer) private returns (uint) {
+        for (uint _originIdx = 0; _originIdx < _origin.length && _origin[_originIdx] != 0x0; ++_originIdx) {
+            _destination[_pointer++] = _origin[_originIdx];
+        }
+        return _pointer;
     }
 
     /** Events emitting */

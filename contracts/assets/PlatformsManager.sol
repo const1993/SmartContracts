@@ -77,6 +77,9 @@ contract PlatformsManager is BaseManager, PlatformsManagerEmitter {
         return OK;
     }
 
+    /**
+    * @dev TODO
+    */
     function getPlatformName(address _platform) public constant returns (bytes32 _name) {
         _name = store.get(platformToName, _platform);
     }

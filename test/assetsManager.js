@@ -108,5 +108,15 @@ contract('Assets Manager', function(accounts) {
             it("should recognize an user added through platform as an asset owner in AssetsManager")
             it("should remove an asset owner from a platform and show it in AssetsManager")
         })
+
+        context("statistics", function () {
+            it("should have 1 platform count for a user")
+            it("should have 2 platforms after creating a new platform")
+            it("should have 1 total token number from two platforms")
+            it("should have 3 total token number after creating 2 tokens on different platforms")
+            it("should have 2 managers for LHT token")
+            it("should have 1 manager for newly created token")
+            it("should have 2 managers in total from all platforms")
+        })
     })
 })

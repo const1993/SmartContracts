@@ -98,10 +98,9 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      * Should only be used if no state changes happened.
      *
      * @param _errorCode code of an error
-     * @param _message error message.
      */
-    function _error(uint _errorCode, bytes32 _message) internal returns(uint) {
-        ChronoBankPlatformEmitter(eventsHistory).emitError(_message);
+    function _error(uint _errorCode) internal returns(uint) {
+        ChronoBankPlatformEmitter(eventsHistory).emitError(_errorCode);
         return _errorCode;
     }
 
@@ -117,7 +116,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     /**
      * Emits Error if called not by asset owner.
      */
-    modifier onlyEventsHistoryAdmin(bytes32 _symbol) {
+    modifier onlyEventsHistoryAdmin() {
         if (eventsHistoryAdmin == msg.sender || contractOwner == msg.sender) {
             _;
         }
@@ -188,7 +187,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     /**
      * Sets EventsHstory contract address.
      *
-     * Can be set only by contract owner.
+     * Can be set only by events history admon or owner.
      *
      * @param _eventsHistory MultiEventsHistory contract address.
      *
@@ -204,12 +203,12 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * Can be set only by contract owner.
      *
-     * @param _eventsHistory MultiEventsHistory contract address.
+     * @param _eventsHistoryAdmim admin contract address.
      *
      * @return success.
      */
     function setupEventsHistoryAdmin(address _eventsHistoryAdmim) onlyContractOwner returns (uint errorCode) {
-        eventsHistoryAdmim = _eventsHistoryAdmim;
+        eventsHistoryAdmin = _eventsHistoryAdmim;
         return OK;
     }
 
@@ -438,19 +437,19 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function _transfer(uint _fromId, uint _toId, uint _value, bytes32 _symbol, string _reference, uint _senderId) internal returns(uint) {
         // Should not allow to send to oneself.
         if (_fromId == _toId) {
-            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF, "Cannot send to oneself");
+            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF);
         }
         // Should have positive value.
         if (_value == 0) {
-            return _error(CHRONOBANK_PLATFORM_INVALID_VALUE, "Cannot send 0 value");
+            return _error(CHRONOBANK_PLATFORM_INVALID_VALUE);
         }
         // Should have enough balance.
         if (_balanceOf(_fromId, _symbol) < _value) {
-            return _error(CHRONOBANK_PLATFORM_INSUFFICIENT_BALANCE, "Insufficient balance");
+            return _error(CHRONOBANK_PLATFORM_INSUFFICIENT_BALANCE);
         }
         // Should have enough allowance.
         if (_fromId != _senderId && _allowance(_fromId, _senderId, _symbol) < _value) {
-            return _error(CHRONOBANK_PLATFORM_NOT_ENOUGH_ALLOWANCE, "Not enough allowance");
+            return _error(CHRONOBANK_PLATFORM_NOT_ENOUGH_ALLOWANCE);
         }
 
         _transferDirect(_fromId, _toId, _value, _symbol);
@@ -546,11 +545,11 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function issueAsset(bytes32 _symbol, uint _value, string _name, string _description, uint8 _baseUnit, bool _isReissuable) onlyOneOfContractOwners public returns(uint) {
         // Should have positive value if supply is going to be fixed.
         if (_value == 0 && !_isReissuable) {
-            return _error(CHRONOBANK_PLATFORM_CANNOT_ISSUE_FIXED_ASSET_WITH_INVALID_VALUE, "Cannot issue 0 value fixed asset");
+            return _error(CHRONOBANK_PLATFORM_CANNOT_ISSUE_FIXED_ASSET_WITH_INVALID_VALUE);
         }
         // Should not be issued yet.
         if (isCreated(_symbol)) {
-            return _error(CHRONOBANK_PLATFORM_ASSET_ALREADY_ISSUED, "Asset already issued");
+            return _error(CHRONOBANK_PLATFORM_ASSET_ALREADY_ISSUED);
         }
         uint holderId = _createHolderId(msg.sender);
 
@@ -578,16 +577,16 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function reissueAsset(bytes32 _symbol, uint _value) onlyOneOfOwners(_symbol) public returns(uint) {
         // Should have positive value.
         if (_value == 0) {
-            return _error(CHRONOBANK_PLATFORM_INVALID_VALUE, "Cannot reissue 0 value");
+            return _error(CHRONOBANK_PLATFORM_INVALID_VALUE);
         }
         Asset asset = assets[_symbol];
         // Should have dynamic supply.
         if (!asset.isReissuable) {
-            return _error(CHRONOBANK_PLATFORM_CANNOT_REISSUE_FIXED_ASSET, "Cannot reissue fixed asset");
+            return _error(CHRONOBANK_PLATFORM_CANNOT_REISSUE_FIXED_ASSET);
         }
         // Resulting total supply should not overflow.
         if (asset.totalSupply + _value < asset.totalSupply) {
-            return _error(CHRONOBANK_PLATFORM_SUPPLY_OVERFLOW, "Total supply overflow");
+            return _error(CHRONOBANK_PLATFORM_SUPPLY_OVERFLOW);
         }
         uint holderId = getHolderId(msg.sender);
         asset.wallets[holderId].balance = asset.wallets[holderId].balance.add(_value);
@@ -611,13 +610,13 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function revokeAsset(bytes32 _symbol, uint _value) public returns(uint) {
         // Should have positive value.
         if (_value == 0) {
-            return _error(CHRONOBANK_PLATFORM_INVALID_VALUE, "Cannot revoke 0 value");
+            return _error(CHRONOBANK_PLATFORM_INVALID_VALUE);
         }
         Asset asset = assets[_symbol];
         uint holderId = getHolderId(msg.sender);
         // Should have enough tokens.
         if (asset.wallets[holderId].balance < _value) {
-            return _error(CHRONOBANK_PLATFORM_NOT_ENOUGH_TOKENS, "Not enough tokens to revoke");
+            return _error(CHRONOBANK_PLATFORM_NOT_ENOUGH_TOKENS);
         }
         asset.wallets[holderId].balance = asset.wallets[holderId].balance.sub(_value);
         asset.totalSupply = asset.totalSupply.sub(_value);
@@ -642,14 +641,14 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      */
     function changeOwnership(bytes32 _symbol, address _newOwner) onlyOwner(_symbol) public returns(uint) {
         if (_newOwner == 0x0) {
-            return _error(CHRONOBANK_PLATFORM_INVALID_NEW_OWNER, "Can't change ownership to 0x0");
+            return _error(CHRONOBANK_PLATFORM_INVALID_NEW_OWNER);
         }
 
         Asset asset = assets[_symbol];
         uint newOwnerId = _createHolderId(_newOwner);
         // Should pass ownership to another holder.
         if (asset.owner == newOwnerId) {
-            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF, "Cannot pass ownership to oneself");
+            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF);
         }
         address oldOwner = _address(asset.owner);
         asset.owner = newOwnerId;
@@ -683,11 +682,11 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
         uint fromId = _createHolderId(msg.sender);
         // Should trust to another address.
         if (fromId == getHolderId(_to)) {
-            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF, "Cannot trust to oneself");
+            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF);
         }
         // Should trust to yet untrusted.
         if (isTrusted(msg.sender, _to)) {
-            return _error(CHRONOBANK_PLATFORM_ALREADY_TRUSTED, "Already trusted");
+            return _error(CHRONOBANK_PLATFORM_ALREADY_TRUSTED);
         }
 
         holders[fromId].trust[_to] = true;
@@ -721,7 +720,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function recover(address _from, address _to) checkTrust(_from, msg.sender) public returns (uint errorCode) {
         // Should recover to previously unused address.
         if (getHolderId(_to) != 0) {
-            return _error(CHRONOBANK_PLATFORM_SHOULD_RECOVER_TO_NEW_ADDRESS, "Should recover to new address");
+            return _error(CHRONOBANK_PLATFORM_SHOULD_RECOVER_TO_NEW_ADDRESS);
         }
         // We take current holder address because it might not equal _from.
         // It is possible to recover from any old holder address, but event should have the current one.
@@ -750,11 +749,11 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function _approve(uint _spenderId, uint _value, bytes32 _symbol, uint _senderId) internal returns(uint) {
         // Asset should exist.
         if (!isCreated(_symbol)) {
-            return _error(CHRONOBANK_PLATFORM_ASSET_IS_NOT_ISSUED, "Asset is not issued");
+            return _error(CHRONOBANK_PLATFORM_ASSET_IS_NOT_ISSUED);
         }
         // Should allow to another holder.
         if (_senderId == _spenderId) {
-            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF, "Cannot approve to oneself");
+            return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF);
         }
         assets[_symbol].wallets[_senderId].allowance[_spenderId] = _value;
         // Internal Out Of Gas/Throw: revert this transaction too;

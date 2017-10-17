@@ -16,7 +16,7 @@ contract ChronoBankPlatformEmitter is MultiEventsHistoryAdapter {
     event OwnershipChange(address indexed from, address indexed to, bytes32 indexed symbol);
     event Approve(address indexed from, address indexed spender, bytes32 indexed symbol, uint value);
     event Recovery(address indexed from, address indexed to, address by);
-    event Error(bytes32 message);
+    event Error(uint errorCode);
 
     function emitTransfer(address _from, address _to, bytes32 _symbol, uint _value, string _reference) {
         Transfer(_from, _to, _symbol, _value, _reference);
@@ -42,7 +42,7 @@ contract ChronoBankPlatformEmitter is MultiEventsHistoryAdapter {
         Recovery(_from, _to, _by);
     }
 
-    function emitError(bytes32 _message) {
-        Error(_message);
+    function emitError(uint _errorCode) {
+        Error(_errorCode);
     }
 }

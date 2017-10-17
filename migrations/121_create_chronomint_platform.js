@@ -5,6 +5,7 @@ const BaseTokenManagementExtension = artifacts.require('./BaseTokenManagementExt
 const LOCWallet = artifacts.require('./LOCWallet.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
+const bytes32fromBase58 = require('../test/helpers/bytes32fromBase58')
 
 module.exports = function(deployer, network, accounts) {
     //----------
@@ -19,19 +20,25 @@ module.exports = function(deployer, network, accounts) {
 
     const systemOwner = accounts[0]
 
+    var lhtIconIpfsHash = ""
+    if (network !== "test") {
+        //https://ipfs.infura.io:5001
+        lhtIconIpfsHash = "Qmdhbz5DTrd3fLHWJ8DY2wyAwhffEZG9MoWMvbm3MRwh8V";
+    }
+
     deployer
     .then(() => PlatformsManager.deployed())
     .then(_platformsManager => platformsManager = _platformsManager)
     .then(() => AssetsManager.deployed())
     .then(_manager => assetsManager = _manager)
 
-    .then(() => platformsManager.createPlatform("Platform"))
+    .then(() => platformsManager.createPlatform("ChronoBank"))
     .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
     .then(_platformMeta => platformAddr = _platformMeta[0])
     .then(() => assetsManager.getTokenExtension.call(platformAddr))
     .then(_tokenExtensionAddr => BaseTokenManagementExtension.at(_tokenExtensionAddr))
     .then(_tokenExtension => tokenExtension = _tokenExtension)
-    .then(() => tokenExtension.createAssetWithFee(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE))
+    .then(() => tokenExtension.createAssetWithFee(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE, bytes32fromBase58(lhtIconIpfsHash)))
     .then(() => tokenExtension.getAssetOwnershipManager.call())
     .then(_assetOwnershipManagerAddr => ChronoBankAssetOwnershipManager.at(_assetOwnershipManagerAddr))
     .then(_assetOwnershipManager => {

@@ -114,12 +114,13 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         string _description,
         uint _value,
         uint8 _decimals,
-        bool _isMint)
+        bool _isMint,
+        bytes32 _tokenImageIpfsHash)
     onlyPlatformOwner
     public
     returns (uint resultCode)
     {
-        return _createAssetWithoutFee(_symbol, _name, _description, _value, _decimals, _isMint, [uint(0)]);
+        return _createAssetWithoutFee(_symbol, _name, _description, _value, _decimals, _isMint, _tokenImageIpfsHash, [uint(0)]);
     }
 
     function _createAssetWithoutFee(
@@ -129,6 +130,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         uint _value,
         uint8 _decimals,
         bool _isMint,
+        bytes32 _tokenImageIpfsHash,
         uint[1] memory _result)
     featured(_result)
     private
@@ -144,7 +146,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         address _asset = _createAsset(getTokenFactory());
 
         address _token;
-        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals);
+        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
         if (resultCode != OK) {
             revert();
         }
@@ -163,11 +165,12 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         uint8 _decimals,
         bool _isMint,
         address _feeAddress,
-        uint32 _feePercent)
+        uint32 _feePercent,
+        bytes32 _tokenImageIpfsHash)
     onlyPlatformOwner
     public
     returns (uint resultCode) {
-        return _createAssetWithFee(_symbol, _name, _description, _value, _decimals,_isMint, _feeAddress, _feePercent, [uint(0)]);
+        return _createAssetWithFee(_symbol, _name, _description, _value, _decimals,_isMint, _feeAddress, _feePercent, _tokenImageIpfsHash, [uint(0)]);
     }
 
     function _createAssetWithFee(
@@ -179,6 +182,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         bool _isMint,
         address _feeAddress,
         uint32 _feePercent,
+        bytes32 _tokenImageIpfsHash,
         uint[1] memory _result)
     featured(_result)
     private
@@ -192,10 +196,8 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
             return _emitError(resultCode);
         }
 
-        address _asset = _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent);
-
         address _token;
-        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals);
+        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent), _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
         if (resultCode != OK) {
             revert();
         }
@@ -297,7 +299,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     /**
     * @dev TODO
     */
-    function _bindAssetWithToken(TokenFactory _factory, address _asset, bytes32 _symbol, string _name, uint _value, uint8 _decimals) private returns (address token, uint errorCode) {
+    function _bindAssetWithToken(TokenFactory _factory, address _asset, bytes32 _symbol, string _name, uint _value, uint8 _decimals, bytes32 _ipfsHash) private returns (address token, uint errorCode) {
         token = _factory.createProxy();
 
         errorCode = ChronoBankPlatformInterface(platform).setProxy(token, _symbol);
@@ -317,11 +319,11 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
             revert();
         }
 
-        errorCode = _addToken(token, _symbol, _decimals);
+        errorCode = _addToken(token, _symbol, _decimals, _ipfsHash);
         if (errorCode != OK) {
             revert();
         }
-        
+
         return (token, OK);
     }
 
@@ -352,9 +354,9 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     *
     * @return errorCode result code of an operation
     */
-    function _addToken(address token, bytes32 symbol, uint8 decimals) private returns (uint errorCode) {
+    function _addToken(address token, bytes32 symbol, uint8 decimals, bytes32 _ipfsHash) private returns (uint errorCode) {
         ERC20ManagerInterface erc20Manager = ERC20ManagerInterface(lookupManager("ERC20Manager"));
-        errorCode = erc20Manager.addToken(token, bytes32(0), symbol, bytes32(0), decimals, bytes32(0), bytes32(0));
+        errorCode = erc20Manager.addToken(token, bytes32(0), symbol, bytes32(0), decimals, _ipfsHash, bytes32(0));
     }
 
     /**

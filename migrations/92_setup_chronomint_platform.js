@@ -37,7 +37,7 @@ module.exports = function(deployer, network, accounts) {
         .then(() => assetsManager.getTokenExtension.call(_platformMeta[0]))
         .then(_tokenExtensionAddr => BaseTokenManagementExtension.at(_tokenExtensionAddr))
         .then(_tokenExtension => tokenExtension = _tokenExtension)
-        .then(() => tokenExtension.createAssetWithFee(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE))
+        .then(() => tokenExtension.createAssetWithFee(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE, ""))
         .then(() => tokenExtension.getAssetOwnershipManager.call())
         .then(_assetOwnershipManagerAddr => ChronoBankAssetOwnershipManager.at(_assetOwnershipManagerAddr))
         .then(_assetOwnershipManager => {

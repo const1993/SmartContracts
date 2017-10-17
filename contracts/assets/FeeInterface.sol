@@ -9,5 +9,9 @@ contract FeeInterface {
 
     function calculateFee(uint _value) returns(uint);
 
-    function setupFee(address _feeAddress, uint32 _feePercent);
+    function setupFee(address _feeAddress, uint32 _feePercent) returns (bool);
+
+    function setFeeAddress(address _feeAddress) returns (bool);
+
+    function setFee(uint32 _feePercent);
 }

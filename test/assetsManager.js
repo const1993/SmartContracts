@@ -86,10 +86,10 @@ contract('Assets Manager', function(accounts) {
 
                 let tokenExtensionAddress = await Setup.assetsManager.getTokenExtension.call(platform.address)
                 let tokenExtension = await TokenManagementExtension.at(tokenExtensionAddress)
-                let assetResultCode = await tokenExtension.createAssetWithoutFee.call(symbol, desc, "", 0, 8, true, { from: owner })
+                let assetResultCode = await tokenExtension.createAssetWithoutFee.call(symbol, desc, "", 0, 8, true, 0x0, { from: owner })
                 assert.equal(assetResultCode, ErrorsEnum.OK)
 
-                let assetTx = await tokenExtension.createAssetWithoutFee(symbol, desc, "", 0, 8, true, { from: owner })
+                let assetTx = await tokenExtension.createAssetWithoutFee(symbol, desc, "", 0, 8, true, 0x0, { from: owner })
                 let event = eventsHelper.extractEvents(assetTx, "AssetCreated")[0]
                 assert.isDefined(event)
 

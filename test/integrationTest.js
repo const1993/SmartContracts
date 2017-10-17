@@ -2,6 +2,7 @@ const Setup = require('../setup/setup')
 const Reverter = require('./helpers/reverter')
 const ErrorsEnum = require("../common/errors")
 const ChronoBankAssetProxyInterface = artifacts.require('./ChronoBankAssetProxyInterface.sol')
+const ChronoBankAssetProxy = artifacts.require('./ChronoBankAssetProxy.sol')
 const LOCWallet = artifacts.require('./LOCWallet.sol')
 
 contract("Integration test", function(accounts) {
@@ -24,6 +25,13 @@ contract("Integration test", function(accounts) {
         it("should have LHT token registered in ERC20Manager", async () => {
             let tokenAddress = await Setup.erc20Manager.getTokenAddressBySymbol.call(LHT_SYMBOL)
             assert.notEqual(tokenAddress, 0x0)
+        })
+
+        it("should have backed ChronoBankAsset contract in LHT token", async () => {
+            let tokenAddress = await Setup.erc20Manager.getTokenAddressBySymbol.call(LHT_SYMBOL)
+            let token = await ChronoBankAssetProxy.at(tokenAddress)
+            let assetAddress = await token.getLatestVersion.call()
+            assert.notEqual(assetAddress, 0x0)
         })
 
         it("should have in AssetsManager a tokens for system user", async () => {

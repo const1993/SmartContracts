@@ -102,8 +102,6 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     * @dev TODO
     */
     function setServiceProvider(address _serviceProvider) onlyPlatformOwner public returns (uint) {
-        require(_serviceProvider != 0x0);
-
         serviceProvider = _serviceProvider;
         return OK;
     }
@@ -136,20 +134,13 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     private
     returns (uint resultCode)
     {
-        require(_symbol != bytes32(0));
-
         resultCode = _prepareAndIssueAssetOnPlatform(_symbol, _name, _description, _value, _decimals, _isMint);
         if (resultCode != OK) {
             return _emitError(resultCode);
         }
 
         address _asset = _createAsset(getTokenFactory());
-
-        address _token;
-        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
-        if (resultCode != OK) {
-            revert();
-        }
+        address _token = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
 
         AssetCreated(this, platform, _symbol, _token);
 
@@ -188,7 +179,6 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     private
     returns (uint resultCode)
     {
-        require(_symbol != bytes32(0));
         require(_feeAddress != 0x0);
 
         resultCode = _prepareAndIssueAssetOnPlatform(_symbol, _name, _description, _value, _decimals, _isMint);
@@ -196,12 +186,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
             return _emitError(resultCode);
         }
 
-        address _token;
-        (_token, resultCode) = _bindAssetWithToken(getTokenFactory(), _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent), _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
-        if (resultCode != OK) {
-            revert();
-        }
-
+        address _token = _bindAssetWithToken(getTokenFactory(), _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent), _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
         AssetCreated(this, platform, _symbol, _token);
 
         _result[0] = OK;
@@ -246,10 +231,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
             return _emitError(result);
         }
 
-        result = _assetOwnershipManager.addAssetPartOwner(_symbol, _crowdsale);
-        if (result != OK) {
-            revert();
-        }
+        if( OK != _assetOwnershipManager.addAssetPartOwner(_symbol, _crowdsale)) revert();
 
         CrowdsaleCampaignCreated(this, platform, _symbol, _crowdsale);
 
@@ -275,10 +257,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
             return _emitError(result);
         }
 
-        result = _assetOwnershipManager.removeAssetPartOwner(_symbol, _crowdsale);
-        if (result != OK) {
-            return _emitError(result);
-        }
+        if(OK != _assetOwnershipManager.removeAssetPartOwner(_symbol, _crowdsale)) revert();
 
         CrowdsaleCampaignRemoved(this, platform, _symbol, _crowdsale);
         return OK;
@@ -293,19 +272,16 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
             return ERROR_TOKEN_EXTENSION_ASSET_TOKEN_EXISTS;
         }
 
-        return ChronoBankPlatformInterface(platform).issueAsset(_symbol, _value, _name, _description, _decimals, _isMint);
+        return ChronoBankPlatformInterface(platform).issueAsset(_symbol, _value, _name, _description, _decimals, _isMint, msg.sender);
     }
 
     /**
     * @dev TODO
     */
-    function _bindAssetWithToken(TokenFactory _factory, address _asset, bytes32 _symbol, string _name, uint _value, uint8 _decimals, bytes32 _ipfsHash) private returns (address token, uint errorCode) {
+    function _bindAssetWithToken(TokenFactory _factory, address _asset, bytes32 _symbol, string _name, uint _value, uint8 _decimals, bytes32 _ipfsHash) private returns (address token) {
         token = _factory.createProxy();
 
-        errorCode = ChronoBankPlatformInterface(platform).setProxy(token, _symbol);
-        if (errorCode != OK) {
-            return (0x0, errorCode);
-        }
+        if (OK != ChronoBankPlatformInterface(platform).setProxy(token, _symbol)) revert();
 
         ChronoBankAssetOwnershipManager _assetOwnershipManager = ChronoBankAssetOwnershipManager(getAssetOwnershipManager());
         ChronoBankAssetProxyInterface(token).init(platform, StringsLib.bytes32ToString(_symbol), _name);
@@ -315,16 +291,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         _assetOwnershipManager.addAssetPartOwner(_symbol, this);
         _assetOwnershipManager.changeOwnership(_symbol, msg.sender);
 
-        if (_value > 0 && !ERC20Interface(token).transfer(msg.sender, _value)) {
-            revert();
-        }
-
-        errorCode = _addToken(token, _symbol, _decimals, _ipfsHash);
-        if (errorCode != OK) {
-            revert();
-        }
-
-        return (token, OK);
+        if(OK != _addToken(token, _symbol, _decimals, _ipfsHash)) revert();
     }
 
     /**
@@ -332,9 +299,8 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     */
     function _deployAssetWithFee(TokenFactory _factory, address _feeAddress, uint32 _fee) private returns (address _asset) {
         _asset = _factory.createAssetWithFee(this);
-        OwnedInterface(_asset).claimContractOwnership();
         FeeInterface(_asset).setupFee(_feeAddress, _fee);
-        OwnedInterface(_asset).changeContractOwnership(msg.sender);
+        OwnedInterface(_asset).transferContractOwnership(msg.sender);
     }
 
     /**
@@ -364,9 +330,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     */
     function lookupManager(bytes32 _identifier) constant returns (address manager) {
         manager = ContractsManagerInterface(serviceProvider).getContractAddressByType(_identifier);
-        if (manager == 0x0) {
-            revert();
-        }
+        assert(manager != 0x0);
     }
 
     /**

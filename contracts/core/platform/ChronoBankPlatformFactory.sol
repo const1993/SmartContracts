@@ -7,18 +7,13 @@ import "../event/MultiEventsHistory.sol";
 * @dev TODO
 */
 contract ChronoBankPlatformFactory {
-
-    function createPlatform(address owner) returns(address) {
-        MultiEventsHistory history = new MultiEventsHistory();
+    function createPlatform(address owner, MultiEventsHistory eventsHistory, address eventsHistoryAdmin) returns(address) {
         ChronoBankPlatform platform = new ChronoBankPlatform();
-        history.authorize(platform);
-        platform.setupEventsHistory(history);
-        platform.transferContractOwnership(msg.sender);
-        history.transferContractOwnership(owner);
-        return platform;
-    }
+        platform.setupEventsHistoryAdmin(eventsHistoryAdmin);
+        eventsHistory.authorize(platform);
+        platform.setupEventsHistory(eventsHistory);
 
-    function() {
-        throw;
+        platform.transferContractOwnership(msg.sender);
+        return platform;
     }
 }

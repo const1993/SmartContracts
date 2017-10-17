@@ -90,6 +90,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
 
     // Should use interface of the emitter, but address of events history.
     address public eventsHistory;
+    address public eventsHistoryAdmin;
 
     /**
      * Emits Error event with specified error message.
@@ -105,24 +106,19 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     }
 
     /**
-     * Sets EventsHstory contract address.
-     *
-     * Can be set only once, and only by contract owner.
-     *
-     * @param _eventsHistory MultiEventsHistory contract address.
-     *
-     * @return success.
+     * Emits Error if called not by asset owner.
      */
-    function setupEventsHistory(address _eventsHistory) onlyContractOwner returns(uint errorCode) {
-        eventsHistory = _eventsHistory;
-        return OK;
+    modifier onlyOwner(bytes32 _symbol) {
+        if (isOwner(msg.sender, _symbol)) {
+            _;
+        }
     }
 
     /**
      * Emits Error if called not by asset owner.
      */
-    modifier onlyOwner(bytes32 _symbol) {
-        if (isOwner(msg.sender, _symbol)) {
+    modifier onlyEventsHistoryAdmin(bytes32 _symbol) {
+        if (eventsHistoryAdmin == msg.sender || contractOwner == msg.sender) {
             _;
         }
     }
@@ -186,6 +182,34 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     */
     function removePartOwner(address _partowner) onlyContractOwner returns (uint) {
         delete partowners[_partowner];
+        return OK;
+    }
+
+    /**
+     * Sets EventsHstory contract address.
+     *
+     * Can be set only by contract owner.
+     *
+     * @param _eventsHistory MultiEventsHistory contract address.
+     *
+     * @return success.
+     */
+    function setupEventsHistory(address _eventsHistory) onlyEventsHistoryAdmin returns (uint errorCode) {
+        eventsHistory = _eventsHistory;
+        return OK;
+    }
+
+    /**
+     * Sets EventsHstory contract admin address.
+     *
+     * Can be set only by contract owner.
+     *
+     * @param _eventsHistory MultiEventsHistory contract address.
+     *
+     * @return success.
+     */
+    function setupEventsHistoryAdmin(address _eventsHistoryAdmim) onlyContractOwner returns (uint errorCode) {
+        eventsHistoryAdmim = _eventsHistoryAdmim;
         return OK;
     }
 

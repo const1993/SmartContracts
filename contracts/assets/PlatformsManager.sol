@@ -7,10 +7,11 @@ import "../core/platform/ChronoBankAssetOwnershipManager.sol";
 import "./PlatformsManagerEmitter.sol";
 import "./AssetsManagerInterface.sol";
 import "./PlatformsManagerInterface.sol";
+import "../core/platform/ChronoBankPlatform.sol";
 
 
 contract PlatformsFactory {
-    function createPlatform(address owner) returns (address);
+    function createPlatform(address owner, address eventsHistory, address eventsHistoryAdmin) returns (address);
 }
 
 
@@ -133,6 +134,8 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
         _attachPlatformWithoutValidation(_platform, _name, OwnedContract(_platform).contractOwner());
         _emitPlatformAttached(_platform);
+
+        ChronoBankPlatform(_platform).setupEventsHistory(getEventsHistory());
         return OK;
     }
 
@@ -149,6 +152,8 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
             /* @dev TODO: have to think how to avoid this situation */
             return _emitError(ERROR_PLATFORMS_INCONSISTENT_INTERNAL_STATE);
         }
+
+        ChronoBankPlatform(_platform).setupEventsHistory(_platform);
 
         store.remove(ownerToPlatforms, bytes32(_owner), _platform);
         store.remove(platforms, _platform);
@@ -179,7 +184,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
     function _createPlatform(bytes32 _name, uint[1] memory _result) featured(_result) private returns (uint resultCode) {
         PlatformsFactory factory = PlatformsFactory(store.get(platformsFactory));
-        address _platform = factory.createPlatform(msg.sender);
+        address _platform = factory.createPlatform(msg.sender, getEventsHistory(), this);
         _attachPlatformWithoutValidation(_platform, _name, msg.sender);
 
         AssetsManagerInterface assetsManager = AssetsManagerInterface(lookupManager("AssetsManager"));

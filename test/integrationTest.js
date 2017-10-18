@@ -35,17 +35,26 @@ contract("Integration test", function(accounts) {
         })
 
         it("should have in AssetsManager a tokens for system user", async () => {
-            let [tokenSymbols, tokenAddresses, totalSupplies] = await Setup.assetsManager.getAssetsForOwner.call(systemOwner, systemOwner)
-            tokenSymbols = tokenSymbols.map((e,i) => web3.toAscii(e).replace(/\0/g, ''))
-            assert.isAtLeast(tokenSymbols.length, 1)
-            assert.include(tokenSymbols, LHT_SYMBOL)
+            let [tokenAddresses, totalSupplies] = await Setup.assetsManager.getAssetsForOwner.call(systemOwner, systemOwner)
+            assert.isAtLeast(tokenAddresses.length, 1)
+
+            let lhtTokenAddr = await Setup.erc20Manager.getTokenAddressBySymbol.call(LHT_SYMBOL)
+            assert.include(tokenAddresses, lhtTokenAddr)
+        })
+
+        it("should have 2 owners for LHT", async () => {
+            let managers = await Setup.assetsManager.getManagersForAssetSymbol.call(LHT_SYMBOL)
+            assert.isAtLeast(managers.length, 2)
+            assert.include(managers, systemOwner)
+            assert.include(managers, LOCWallet.address)
         })
 
         it("should have LOCWallet as one of owners of LHT token", async () => {
-            let [tokenSymbols, tokenAddresses, totalSupplies] = await Setup.assetsManager.getAssetsForOwner.call(LOCWallet.address, systemOwner)
-            tokenSymbols = tokenSymbols.map((e,i) => web3.toAscii(e).replace(/\0/g, ''))
-            assert.isAtLeast(tokenSymbols.length, 1)
-            assert.include(tokenSymbols, LHT_SYMBOL)
+            let [tokenAddresses, totalSupplies] = await Setup.assetsManager.getAssetsForOwner.call(LOCWallet.address, systemOwner)
+            assert.isAtLeast(tokenAddresses.length, 1)
+
+            let lhtTokenAddr = await Setup.erc20Manager.getTokenAddressBySymbol.call(LHT_SYMBOL)
+            assert.include(tokenAddresses, lhtTokenAddr)
         })
 
         it("should have a list of tokens in Rewards contract", async () => {

@@ -238,10 +238,9 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
     /**
     * @dev TODO
     */
-    function getAssetsForOwnerInPlatform(address _platform, address _owner) public constant returns (bytes32[] _symbols, address[] _tokens, uint[] _totalSupply) {
-        _symbols = new bytes32[](getAssetsForOwnerCount(_platform, _owner));
-        _tokens = new address[](_symbols.length);
-        _totalSupply = new uint[](_symbols.length);
+    function getAssetsForOwnerInPlatform(address _platform, address _owner) public constant returns (address[] _tokens, uint[] _totalSupplies) {
+        _tokens = new address[](getAssetsForOwnerCount(_platform, _owner));
+        _totalSupplies = new uint[](_tokens.length);
 
         TokenManagementInterface _tokenExtension = TokenManagementInterface(getTokenExtension(_platform));
         ChronoBankAssetOwnershipManager _assetsOwnershipManager = ChronoBankAssetOwnershipManager(_tokenExtension.getAssetOwnershipManager());
@@ -254,9 +253,8 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
         for (uint _originalSymbolIdx = 0; _originalSymbolIdx < _originalSymbolsCount; ++_originalSymbolIdx) {
             _originalSymbol = _assetsOwnershipManager.symbols(_originalSymbolIdx);
             if (_assetsOwnershipManager.hasAssetRights(_owner, _originalSymbol)) {
-                _symbols[_symbolIdx] = _originalSymbol;
                 _tokens[_symbolIdx] = _chronoBankPlatform.proxies(_originalSymbol);
-                _totalSupply[_symbolIdx] = _chronoBankPlatform.totalSupply(_originalSymbol);
+                _totalSupplies[_symbolIdx] = _chronoBankPlatform.totalSupply(_originalSymbol);
                 ++_symbolIdx;
             }
         }
@@ -265,28 +263,29 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
     /**
     * @dev TODO
     */
-    function getAssetsForOwner(address _owner, address _platformsHolder) public constant returns (bytes32[] _symbols, address[] _tokens, uint[] _totalSupplies) {
+    function getAssetsForOwner(address _owner, address _platformsHolder) public constant returns (address[] _tokens, address[] _tokenPlatforms, uint[] _totalSupplies) {
         PlatformsManagerInterface _platformsManager = PlatformsManagerInterface(lookupManager("PlatformsManager"));
 
         address[] memory _platforms = _getPlatformsForOwner(_platformsHolder);
         var (_countAssets, _totalAssetsCount) = _countAssetsForPlatforms(_platforms, _owner);
 
-        _symbols = new bytes32[](_totalAssetsCount);
-        _tokens = new address[](_symbols.length);
-        _totalSupplies = new uint[](_symbols.length);
+        _tokens = new address[](_totalAssetsCount);
+        _tokenPlatforms = new address[](_totalAssetsCount);
+        _totalSupplies = new uint[](_totalAssetsCount);
         uint _platformIdx = 0;
         ChronoBankPlatformInterface _platform;
+        bytes32 _symbol;
         for (uint _symbolIdx = 0; _symbolIdx < _totalAssetsCount; ++_platformIdx) {
             _platform = ChronoBankPlatformInterface(_platforms[_platformIdx]);
-            _platform = ChronoBankPlatformInterface(_platform);
+            _tokenPlatforms[_symbolIdx] = _platform;
             for (uint _assetIdx = 0; _assetIdx < _countAssets[_platformIdx]; ++_assetIdx) {
-                _symbols[_symbolIdx] = getAssetForOwnerAtIndex(_platform, _owner, _assetIdx);
-                _tokens[_symbolIdx] = _platform.proxies(_symbols[_symbolIdx]);
-                _totalSupplies[_symbolIdx] = _platform.totalSupply(_symbols[_symbolIdx]);
+                _symbol = getAssetForOwnerAtIndex(_platform, _owner, _assetIdx);
+                _tokens[_symbolIdx] = _platform.proxies(_symbol);
+                _totalSupplies[_symbolIdx] = _platform.totalSupply(_symbol);
                 ++_symbolIdx;
             }
         }
-    }    
+    }
 
     /**
     * @dev TODO
@@ -311,6 +310,21 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
                     _managers[_managerPointer++] = _manager;
                     break;
                 }
+            }
+        }
+    }
+
+    function getManagersForAssetSymbol(bytes32 _symbol) public constant returns (address[] _managers) {
+        address _token = getAssetBySymbol(_symbol);
+        address _platform = ChronoBankAssetProxyInterface(_token).chronoBankPlatform();
+
+        uint _managersCount = ChronoBankManagersRegistry(_platform).holdersCount();
+        uint _assetsManagersPointer = 0;
+        _managers = new address[](_managersCount);
+        for (uint _managerIdx = 0; _managerIdx <= _managersCount; ++_managerIdx) {
+            address _manager = ChronoBankManagersRegistry(_platform).holders(_managerIdx);
+            if (ChronoBankAssetOwnershipManager(_platform).hasAssetRights(_manager, _symbol)) {
+                _managers[_assetsManagersPointer++] = _manager;
             }
         }
     }

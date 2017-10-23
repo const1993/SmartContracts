@@ -60,7 +60,7 @@ contract MultiEventsHistory is Object {
         // Internal Out Of Gas/Throw: revert this transaction too;
         // Recursive Call: safe, all changes already made.
         if (!msg.sender.delegatecall(msg.data)) {
-            throw;
+            revert();
         }
     }
 }

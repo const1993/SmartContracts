@@ -3,7 +3,7 @@ const eventsHelper = require('./helpers/eventsHelper')
 const Setup = require('../setup/setup')
 const ErrorsEnum = require("../common/errors")
 const bytes32fromBase58 = require('./helpers/bytes32fromBase58')
-const ChronoBankTokenManagementExtension = artifacts.require('./ChronoBankTokenManagementExtension.sol')
+const TokenManagementInterface = artifacts.require('./TokenManagementInterface.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 const ChronoBankAssetOwnershipManager = artifacts.require('./ChronoBankAssetOwnershipManager.sol')
 const LOCWallet = artifacts.require('./LOCWallet.sol')
@@ -69,8 +69,9 @@ contract("LOCManager multiple currencies", (accounts) => {
             }
 
             Promise.resolve()
+            // TODO: create brand new platform
             .then(() => Setup.assetsManager.getTokenExtension.call(Setup.chronoBankPlatform.address))
-            .then(_tokenExtensionAddress => ChronoBankTokenManagementExtension.at(_tokenExtensionAddress))
+            .then(_tokenExtensionAddress => TokenManagementInterface.at(_tokenExtensionAddress))
             .then(_tokenExtension => tokenExtension = _tokenExtension)
             .then(() => tokenExtension.createAsset(SYMBOL1, SYMBOL1_NAME, SYMBOL1_DESCRIPTION, 0, SYMBOL1_BASE_UNIT, IS_REISSUABLE, WITH_FEE), { from: systemOwner })
             .then(() => tokenExtension.createAsset(SYMBOL2, SYMBOL2_NAME, SYMBOL2_DESCRIPTION, 0, SYMBOL2_BASE_UNIT, IS_REISSUABLE, WITH_FEE), { from: systemOwner })
@@ -93,7 +94,7 @@ contract("LOCManager multiple currencies", (accounts) => {
     context("check", () => {
         it("should have the right ChronoBank token extension in assetsManager", async () => {
             let assetsTokenExtensionAddress = await Setup.assetsManager.getTokenExtension.call(Setup.chronoBankPlatform.address)
-            let chronoBankTokenExtension = await ChronoBankTokenManagementExtension.deployed()
+            let chronoBankTokenExtension = await TokenManagementInterface.deployed()
             assert.equal(assetsTokenExtensionAddress, chronoBankTokenExtension.address)
 
             let associatedPlatformAddress = await chronoBankTokenExtension.platform.call()

@@ -3,7 +3,7 @@ const eventsHelper = require('./helpers/eventsHelper')
 const ErrorsEnum = require("../common/errors")
 const Reverter = require('./helpers/reverter')
 const ChronoBankPlatform = artifacts.require("./ChronoBankPlatform.sol")
-const BaseTokenManagementExtension = artifacts.require('./BaseTokenManagementExtension.sol')
+const TokenManagementInterface = artifacts.require('./TokenManagementInterface.sol')
 
 contract("PlatformsManager", function (accounts) {
     const contractOwner = accounts[0]
@@ -256,7 +256,7 @@ contract("PlatformsManager", function (accounts) {
             assert.isDefined(event)
 
             platform = await ChronoBankPlatform.at(event.args.platform)
-            tokenExtension = await BaseTokenManagementExtension.at(event.args.tokenExtension)
+            tokenExtension = await TokenManagementInterface.at(event.args.tokenExtension)
         })
 
         it('creating asset should spawn events from a platform', async () => {

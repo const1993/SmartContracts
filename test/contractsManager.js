@@ -102,6 +102,11 @@ contract('Contracts Manager', function(accounts) {
       });
     });
 
+    it("can provide Token Extension Gateway Manager address.", async () => {
+      let storedAddress = await Setup.contractsManager.getContractAddressByType.call(Setup.contractTypes.TokenExtensionGateway)
+      assert.equal(storedAddress, Setup.tokenExtensionGateway.address);
+    });
+
     it("doesn't allow a non CBE key to change the contract address", function() {
       return Setup.contractsManager.addContract(Setup.rewards.address,Setup.contractTypes.VotingActor,{from: owner1}).then(function(r) {
         return Setup.contractsManager.getContractAddressByType.call(Setup.contractTypes.VotingActor).then(function(r){

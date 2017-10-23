@@ -1,5 +1,4 @@
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
-const ChronoBankTokenManagementExtension = artifacts.require('./ChronoBankTokenManagementExtension.sol')
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const AssetsManager = artifacts.require('./AssetsManager.sol')
 const LOCWallet = artifacts.require('./LOCWallet.sol')
@@ -32,42 +31,6 @@ module.exports = function (deployer, network, accounts) {
             .then(_proxyAddress => ERC20Interface.at(_proxyAddress))
             .then(_token => _token.transfer(AssetDonator.address, 1000000000000))
         }
-    })
-
-    // skip this step as unnecessary
-    .then(() => {
-        return;
-
-        Promise.resolve()
-        .then(() => ChronoBankTokenManagementExtension.deployed())
-        .then(_tokenExtension => tokenExtension = _tokenExtension)
-        .then(() => platformsManager.attachPlatform(chronoBankPlatform.address, "ChronoBank"))
-        .then(() => assetsManager.registerTokenExtension(tokenExtension.address))
-        .then(() => chronoBankPlatform.changeContractOwnership(tokenExtension.address))
-        .then(() => tokenExtension.claimPlatformOwnership())
-        .then(() => {
-            return Promise.resolve()
-            .then(() => {
-                if (network !== 'main') {
-                    return Promise.resolve()
-                    .then(() => tokenExtension.claimAssetOwnership(TIME_SYMBOL))
-                    .then(() => chronoBankPlatform.changeOwnership(TIME_SYMBOL, tokenExtension.address))
-                }
-            })
-            .then(() => {
-                return Promise.resolve()
-                .then(() => tokenExtension.claimAssetOwnership(LHT_SYMBOL))
-                .then(() => chronoBankPlatform.changeOwnership(LHT_SYMBOL, tokenExtension.address))
-            })
-        })
-        .then(() => {
-            return Promise.resolve()
-            .then(() => tokenExtension.getAssetOwnershipManager.call())
-            .then(_assetOwnershipManagerAddr => ChronoBankAssetOwnershipManager.at(_assetOwnershipManagerAddr))
-            .then(_assetOwnershipManager => {
-                return _assetOwnershipManager.addAssetPartOwner(LHT_SYMBOL, LOCWallet.address)
-            })
-        })
     })
 
     .then(() => console.log("[MIGRATION] [" + parseInt(require("path").basename(__filename)) + "] Setup token extension for ChronoBankPlatform setup: #done"))

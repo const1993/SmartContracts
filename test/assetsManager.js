@@ -4,7 +4,8 @@ const ErrorsEnum = require("../common/errors")
 const Reverter = require('./helpers/reverter')
 const ChronoBankAssetProxy = artifacts.require('./ChronoBankAssetProxy.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
-const TokenManagementExtension = artifacts.require("./TokenManagementExtension.sol")
+const TokenManagementInterface = artifacts.require("./TokenManagementInterface.sol")
+const PlatformTokenExtensionGatewayManagerEmitter = artifacts.require("./PlatformTokenExtensionGatewayManagerEmitter.sol")
 
 contract('Assets Manager', function(accounts) {
     const contractOwner = accounts[0]
@@ -85,13 +86,14 @@ contract('Assets Manager', function(accounts) {
                 let desc = 'My Test Token'
 
                 let tokenExtensionAddress = await Setup.assetsManager.getTokenExtension.call(platform.address)
-                let tokenExtension = await TokenManagementExtension.at(tokenExtensionAddress)
+                let tokenExtension = await TokenManagementInterface.at(tokenExtensionAddress)
+                let tokenEmitter = await PlatformTokenExtensionGatewayManagerEmitter.at(tokenExtensionAddress)
                 let assetResultCode = await tokenExtension.createAssetWithoutFee.call(symbol, desc, "", 0, 8, true, 0x0, { from: owner })
                 assert.equal(assetResultCode, ErrorsEnum.OK)
 
                 let assetTx = await tokenExtension.createAssetWithoutFee(symbol, desc, "", 0, 8, true, 0x0, { from: owner })
-                let event = eventsHelper.extractEvents(assetTx, "AssetCreated")[0]
-                assert.isDefined(event)
+                let logs = await eventsHelper.extractReceiptLogs(assetTx, tokenEmitter.AssetCreated())
+                assert.isDefined(logs[0])
 
                 let assetsCount = await Setup.assetsManager.getAssetsForOwnerCount.call(platform.address, owner)
                 assert.equal(assetsCount, 1)

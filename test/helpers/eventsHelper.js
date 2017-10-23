@@ -91,6 +91,25 @@ function EventsHelper() {
       }
       return filteredLogs
   }
+
+  this.extractReceiptLogs = (tx, eventWatcher) => {
+      return new Promise((resolve, reject) => {
+          let receipt = tx.receipt
+          if (receipt.logs.length == 0) {
+              resolve([])
+              return
+          }
+
+          var logs = []
+          for (logEntry of receipt.logs) {
+              if (logEntry.topics[0] === eventWatcher.options.topics[0]) {
+                  logs.push(logEntry)
+              }
+          }
+
+          resolve(logs)
+      })
+  }
 };
 
 module.exports = new EventsHelper();

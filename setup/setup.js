@@ -25,6 +25,7 @@ const StorageManager = artifacts.require('StorageManager.sol')
 const VoteActor = artifacts.require("./VoteActor.sol");
 const PollManager = artifacts.require("./PollManager.sol");
 const PollDetails = artifacts.require("./PollDetails.sol");
+const PlatformTokenExtensionGatewayManager = artifacts.require('./PlatformTokenExtensionGatewayManager.sol')
 //const CrowdsaleManager = artifacts.require("./CrowdsaleManager.sol");
 
 const contractTypes = {
@@ -41,7 +42,8 @@ const contractTypes = {
   CrowdsaleManager: "CrowdsaleManager",
   VotingActor: "VoteActor",
   VotingDetails: "PollDetails",
-  CrowdsaleManager: "CrowdsaleManager"
+  CrowdsaleManager: "CrowdsaleManager",
+  TokenExtensionGateway: "TokenExtensionGateway"
 }
 
 let storage
@@ -70,6 +72,7 @@ let chronoBankAssetWithFeeProxy
 let multiEventsHistory
 let storageManager
 let crowdsaleManager
+let tokenExtensionGateway
 
 let accounts
 let params
@@ -122,7 +125,8 @@ var setup = function (callback) {
       TimeHolder.deployed(),
       TimeHolderWallet.deployed(),
       MultiEventsHistory.deployed(),
-      StorageManager.deployed()
+      StorageManager.deployed(),
+      PlatformTokenExtensionGatewayManager.deployed()
       //CrowdsaleManager.deployed()
     ])
   }).then((instances) => {
@@ -151,7 +155,8 @@ var setup = function (callback) {
       timeHolder,
       timeHolderWallet,
       multiEventsHistory,
-      storageManager
+      storageManager,
+      tokenExtensionGateway
       //crowdsaleManager
     ] = instances
   }).then(() => {
@@ -179,6 +184,7 @@ var setup = function (callback) {
     module.exports.vote = { manager: pollManager, details: pollDetails, actor: voteActor }
     module.exports.multiEventsHistory = multiEventsHistory
     module.exports.storageManager = storageManager
+    module.exports.tokenExtensionGateway = tokenExtensionGateway
     //module.exports.crowdsaleManager = crowdsaleManager
   }).then(() => {
     callback()

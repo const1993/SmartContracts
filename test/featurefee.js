@@ -99,17 +99,17 @@ contract("FeatureFeeManager", function(accounts) {
 
     it("should not allow to execute WalletsManager#addWallet() account with deposit < feature_price")
 
-    it("should allow to execute BaseTokenManagementExtension#createAssetWithoutFee() account with deposit > feature_price")
+    it("should allow to execute TokenManagementInterface#createAssetWithoutFee() account with deposit > feature_price")
 
-    it("should not allow to execute BaseTokenManagementExtension#createAssetWithoutFee() account with deposit < feature_price")
+    it("should not allow to execute TokenManagementInterface#createAssetWithoutFee() account with deposit < feature_price")
 
-    it("should allow to execute BaseTokenManagementExtension#createAssetWithFee() account with deposit > feature_price")
+    it("should allow to execute TokenManagementInterface#createAssetWithFee() account with deposit > feature_price")
 
-    it("should not allow to execute BaseTokenManagementExtension#createAssetWithFee() account with deposit < feature_price")
+    it("should not allow to execute TokenManagementInterface#createAssetWithFee() account with deposit < feature_price")
 
-    it("should allow to execute BaseTokenManagementExtension#createCrowdsaleCampaign() account with deposit > feature_price")
+    it("should allow to execute TokenManagementInterface#createCrowdsaleCampaign() account with deposit > feature_price")
 
-    it("should not allow to execute BaseTokenManagementExtension#createCrowdsaleCampaign() account with deposit < feature_price")
+    it("should not allow to execute TokenManagementInterface#createCrowdsaleCampaign() account with deposit < feature_price")
 
     it("should allow to execute PlatformManager#createPlatform() account with deposit > feature_price")
 

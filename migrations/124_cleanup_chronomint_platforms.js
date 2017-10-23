@@ -1,8 +1,6 @@
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const ERC20Manager = artifacts.require('./ERC20Manager.sol')
 const AssetsManager = artifacts.require('./AssetsManager.sol')
-const ChronoBankAssetOwnershipManager = artifacts.require('./ChronoBankAssetOwnershipManager.sol')
-const BaseTokenManagementExtension = artifacts.require('./BaseTokenManagementExtension.sol')
 const LOCWallet = artifacts.require('./LOCWallet.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 

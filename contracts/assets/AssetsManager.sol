@@ -21,6 +21,12 @@ contract TokenExtensionsFactory {
 }
 
 
+contract EventsHistory {
+    function authorize(address _eventEmitter) returns (bool);
+    function reject(address _eventEmitter);
+}
+
+
 /**
 * TODO
 */
@@ -127,8 +133,7 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
             return _emitError(ERROR_ASSETS_MANAGER_EXTENSION_ALREADY_EXISTS);
         }
 
-        store.add(tokenExtensions, _tokenExtension);
-        store.set(platformToExtension, _platform, _tokenExtension);
+        _setupTokenExtension(_platform, _tokenExtension);
         _emitTokenExtensionRegistered(_platform, _tokenExtension);
         return OK;
     }
@@ -143,6 +148,8 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
 
         store.remove(tokenExtensions, _tokenExtension);
         store.set(platformToExtension, TokenManagementInterface(_tokenExtension).platform(), 0x0);
+        EventsHistory(getEventsHistory()).reject(_tokenExtension);
+
         _emitTokenExtensionUnregistered(_tokenExtension);
         return OK;
     }
@@ -159,8 +166,7 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
 
         TokenExtensionsFactory _extensionsFactory = TokenExtensionsFactory(store.get(tokenExtensionFactory));
         _tokenExtension = _extensionsFactory.createTokenExtension(_platform);
-        store.set(platformToExtension, _platform, _tokenExtension);
-        store.add(tokenExtensions, _tokenExtension);
+        _setupTokenExtension(_platform, _tokenExtension);
 
         _emitTokenExtensionRequested(_platform, _tokenExtension);
         return OK;
@@ -385,6 +391,16 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, BaseMa
             _destination[_pointer++] = _origin[_originIdx];
         }
         return _pointer;
+    }
+
+    /**
+    * @dev TODO
+    */
+    function _setupTokenExtension(address _platform, address _tokenExtension) private {
+        assert(EventsHistory(getEventsHistory()).authorize(_tokenExtension));
+
+        store.add(tokenExtensions, _tokenExtension);
+        store.set(platformToExtension, _platform, _tokenExtension);
     }
 
     /** Events emitting */

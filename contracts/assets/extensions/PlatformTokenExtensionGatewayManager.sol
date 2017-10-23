@@ -1,17 +1,20 @@
 pragma solidity ^0.4.11;
 
-import "../core/platform/ChronoBankPlatformInterface.sol";
-import "../core/platform/ChronoBankAssetOwnershipManager.sol";
-import "../core/platform/ChronoBankAssetProxyInterface.sol";
-import "../core/common/OwnedInterface.sol";
-import "../core/contracts/ContractsManagerInterface.sol";
-import "../core/erc20/ERC20ManagerInterface.sol";
-import "../core/erc20/ERC20Interface.sol";
-import "./AssetsManagerInterface.sol";
-import "./TokenManagementInterface.sol";
-import "./FeeInterface.sol";
-import "../timeholder/FeatureFeeAdapter.sol";
-import "../core/lib/StringsLib.sol";
+import "./TokenExtensionRouter.sol";
+import "./PlatformTokenExtensionGatewayManagerEmitter.sol";
+import "./../TokenManagementInterface.sol";
+import "../../core/contracts/ContractsManagerInterface.sol";
+import "../../core/platform/ChronoBankPlatformInterface.sol";
+import "../../core/platform/ChronoBankAssetOwnershipManager.sol";
+import "../../core/platform/ChronoBankAssetProxyInterface.sol";
+import "../../core/common/OwnedInterface.sol";
+import "../../core/contracts/ContractsManagerInterface.sol";
+import "../../core/erc20/ERC20ManagerInterface.sol";
+import "../../core/erc20/ERC20Interface.sol";
+import "./../AssetsManagerInterface.sol";
+import "./../FeeInterface.sol";
+import "../../timeholder/FeatureFeeAdapter.sol";
+import "../../core/lib/StringsLib.sol";
 
 contract ChronoBankAsset {
     function init(ChronoBankAssetProxyInterface _proxy) returns (bool);
@@ -50,30 +53,51 @@ contract OwnedContract {
     address public contractOwner;
 }
 
-
 /**
 * @dev TODO
 */
-contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAdapter {
-    uint constant OK = 1;
+contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     uint constant UNAUTHORIZED = 0;
+    uint constant OK = 1;
+    uint constant REINITIALIZED = 6;
     uint constant ERROR_TOKEN_EXTENSION_ASSET_TOKEN_EXISTS = 23001;
     uint constant ERROR_TOKEN_EXTENSION_ASSET_COULD_NOT_BE_REISSUED = 23002;
     uint constant ERROR_TOKEN_EXTENSION_ASSET_COULD_NOT_BE_REVOKED = 23003;
     uint constant ERROR_TOKEN_EXTENSION_ASSET_OWNER_ONLY = 23004;
 
-    event Error(address indexed self, uint errorCode);
-    event AssetCreated(address indexed self, address platform, bytes32 symbol, address token);
-    event CrowdsaleCampaignCreated(address indexed self, address platform, bytes32 symbol, address campaign);
-    event CrowdsaleCampaignRemoved(address indexed self, address platform, bytes32 symbol, address campaign);
+    /** TODO */
+    address internal contractsManager;
 
-    address public platform;
-    address serviceProvider;
+    /** TODO */
+    address internal platform;
+
+    /**
+     * Contract owner address
+     */
+    address public contractOwner;
+
+    /**
+     * Contract owner address
+     */
+    address public pendingContractOwner;
+
+    function PlatformTokenExtensionGatewayManager() {
+        contractOwner = msg.sender;
+    }
+
+    /**
+    * @dev Owner check modifier
+    */
+    modifier onlyContractOwner {
+        if (contractOwner == msg.sender) {
+            _;
+        }
+    }
 
     /**
     * @dev TODO
     */
-    modifier onlyPlatformOwner() {
+    modifier onlyPlatformOwner {
         if (OwnedContract(platform).contractOwner() == msg.sender ||
             msg.sender == address(this)) {
             _;
@@ -83,7 +107,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     /**
     * @dev TODO
     */
-    modifier onlyPlatform() {
+    modifier onlyPlatform {
         if (msg.sender == platform ||
             msg.sender == address(this)) {
             _;
@@ -91,19 +115,94 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     }
 
     /**
-    * @dev TODO
+    *  @dev Designed to be used by ancestors, inits internal fields.
+    *  Will rollback transaction if something goes wrong during initialization.
+    *  Registers contract as a service in ContractManager with given `_type`.
+    *
+    *  @param _contractsManager is contract manager, must be not 0x0
+    *  @return OK if newly initialized and everything is OK,
+    *  or REINITIALIZED if storage already contains some data. Will crash in any other cases.
     */
-    function BaseTokenManagementExtension(address _platform, address _serviceProvider) {
-        platform = _platform;
-        serviceProvider = _serviceProvider;
+    function init(address _contractsManager) onlyContractOwner public returns (uint resultCode) {
+        require(_contractsManager != 0x0);
+
+        bool reinitialized = (contractsManager != 0x0);
+        if (contractsManager == 0x0 || contractsManager != _contractsManager) {
+            contractsManager = _contractsManager;
+        }
+
+        assert(OK == ContractsManagerInterface(contractsManager).addContract(this, "TokenExtensionGateway"));
+
+        return !reinitialized ? OK : REINITIALIZED;
+    }
+
+    function getEventsHistory() public constant returns (address) {
+        return lookupManager("MultiEventsHistory");
     }
 
     /**
-    * @dev TODO
+     * @dev Destroy contract and scrub a data
+     * @notice Only owner can call it
+     */
+    function destroy() onlyContractOwner public {
+        ContractsManagerInterface(contractsManager).removeContract(this);
+        selfdestruct(msg.sender);
+    }
+
+    /**
+     * Prepares ownership pass.
+     *
+     * Can only be called by current owner.
+     *
+     * @param _to address of the next owner. 0x0 is not allowed.
+     *
+     * @return success.
+     */
+    function changeContractOwnership(address _to) onlyContractOwner public returns (bool) {
+        if (_to == 0x0) {
+            return false;
+        }
+
+        pendingContractOwner = _to;
+        return true;
+    }
+
+    /**
+     * Finalize ownership pass.
+     *
+     * Can only be called by pending owner.
+     *
+     * @return success.
+     */
+    function claimContractOwnership() public returns (bool) {
+        if (pendingContractOwner != msg.sender) {
+            return false;
+        }
+
+        contractOwner = pendingContractOwner;
+        delete pendingContractOwner;
+
+        return true;
+    }
+
+    /**
+    * @dev Direct ownership pass without change/claim pattern. Can be invoked only by current contract owner
+    *
+    * @param _to the next contract owner
+    *
+    * @return `true` if success, `false` otherwise
     */
-    function setServiceProvider(address _serviceProvider) onlyPlatformOwner public returns (uint) {
-        serviceProvider = _serviceProvider;
-        return OK;
+    function transferContractOwnership(address _to) onlyContractOwner public returns (bool) {
+        if (_to == 0x0) {
+            return false;
+        }
+
+        if (pendingContractOwner != 0x0) {
+            pendingContractOwner = 0x0;
+        }
+
+        contractOwner = _to;
+        return true;
     }
 
     function createAssetWithoutFee(
@@ -142,7 +241,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         address _asset = _createAsset(getTokenFactory());
         address _token = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
 
-        AssetCreated(this, platform, _symbol, _token);
+        _emitAssetCreated(platform, _symbol, _token);
 
         _result[0] = OK;
         return OK;
@@ -176,7 +275,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         bytes32 _tokenImageIpfsHash,
         uint[1] memory _result)
     featured(_result)
-    private
+    public
     returns (uint resultCode)
     {
         require(_feeAddress != 0x0);
@@ -187,7 +286,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         }
 
         address _token = _bindAssetWithToken(getTokenFactory(), _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent), _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
-        AssetCreated(this, platform, _symbol, _token);
+        _emitAssetCreated(platform, _symbol, _token);
 
         _result[0] = OK;
         return OK;
@@ -233,7 +332,7 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
 
         if( OK != _assetOwnershipManager.addAssetPartOwner(_symbol, _crowdsale)) revert();
 
-        CrowdsaleCampaignCreated(this, platform, _symbol, _crowdsale);
+        _emitCrowdsaleCampaignCreated(platform, _symbol, _crowdsale);
 
         _result[0] = OK;
         return OK;
@@ -259,8 +358,29 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
 
         if(OK != _assetOwnershipManager.removeAssetPartOwner(_symbol, _crowdsale)) revert();
 
-        CrowdsaleCampaignRemoved(this, platform, _symbol, _crowdsale);
+        _emitCrowdsaleCampaignRemoved(platform, _symbol, _crowdsale);
         return OK;
+    }
+
+    /**
+    * @dev TODO
+    */
+    function getAssetOwnershipManager() public constant returns (address) {
+        return platform;
+    }
+
+    /**
+    * @dev TODO
+    */
+    function getReissueAssetProxy() public constant returns (ReissuableAssetProxyInterface) {
+        return ReissuableAssetProxyInterface(platform);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function getRevokeAssetProxy() public constant returns (RevokableAssetProxyInterface) {
+        return RevokableAssetProxyInterface(platform);
     }
 
     /**
@@ -287,7 +407,6 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
         ChronoBankAssetProxyInterface(token).init(platform, StringsLib.bytes32ToString(_symbol), _name);
         ChronoBankAssetProxyInterface(token).proposeUpgrade(_asset);
         ChronoBankAsset(_asset).init(ChronoBankAssetProxyInterface(token));
-        _assetCreationSetupFinished(_symbol, platform, token, msg.sender);
         _assetOwnershipManager.addAssetPartOwner(_symbol, this);
         _assetOwnershipManager.changeOwnership(_symbol, msg.sender);
 
@@ -329,19 +448,33 @@ contract BaseTokenManagementExtension is TokenManagementInterface, FeatureFeeAda
     * @dev TODO
     */
     function lookupManager(bytes32 _identifier) constant returns (address manager) {
-        manager = ContractsManagerInterface(serviceProvider).getContractAddressByType(_identifier);
+        manager = ContractsManagerInterface(contractsManager).getContractAddressByType(_identifier);
         assert(manager != 0x0);
     }
 
+
     /**
-    * TODO
-    * @dev no-op and implement in inhereted contracts
+    * Events emitting
     */
-    function _assetCreationSetupFinished(bytes32 _symbol, address _platform, address _token, address _sender) internal {
-    }
 
     function _emitError(uint _errorCode) internal returns (uint) {
-        Error(this, _errorCode);
+        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitError(_errorCode);
         return _errorCode;
+    }
+
+    function _emitAssetCreated(address _platform, bytes32 _symbol, address _token) private {
+        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitAssetCreated(_platform, _symbol, _token);
+    }
+
+    function _emitCrowdsaleCampaignCreated(address _platform, bytes32 _symbol, address _campaign) private {
+        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitCrowdsaleCampaignCreated(_platform, _symbol, _campaign);
+    }
+
+    function _emitCrowdsaleCampaignRemoved(address _platform, bytes32 _symbol, address _campaign) private {
+        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitCrowdsaleCampaignRemoved(_platform, _symbol, _campaign);
+    }
+
+    function () public {
+        revert();
     }
 }

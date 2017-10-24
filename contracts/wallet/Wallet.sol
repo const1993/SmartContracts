@@ -36,6 +36,7 @@ contract multiowned is WalletEmitter {
     uint constant WALLET_UNKNOWN_TOKEN_TRANSFER = 14017;
     uint constant WALLET_TRANSFER_ALREADY_REGISTERED = 14018;
     uint constant WALLET_INSUFFICIENT_BALANCE = 14019;
+    uint constant WALLET_RELEASE_TIME_ERROR = 14020;
 
     address eventsEmmiter;
 
@@ -57,15 +58,21 @@ contract multiowned is WalletEmitter {
     // constructor is given number of sigs required to do protected "onlymanyowners" transactions
     // as well as the selection of addresses capable of confirming them.
     function multiowned(address[] _owners, uint _required) {
-        m_numOwners = _owners.length + 1;
-        m_owners[1] = uint(msg.sender);
-        m_ownerIndex[uint(msg.sender)] = 1;
-        for (uint i = 0; i < _owners.length; ++i)
-        {
-            m_owners[2 + i] = uint(_owners[i]);
-            m_ownerIndex[uint(_owners[i])] = 2 + i;
+        if(_owners.length == 0) {
+            revert();
         }
-        m_required = _required;
+        for (uint i = 0; i < _owners.length; i++)
+        {
+            m_owners[1 + i] = uint(_owners[i]);
+            m_ownerIndex[uint(_owners[i])] = 1 + i;
+            m_numOwners++;
+        }
+        if(_required <= m_numOwners) {
+            m_required = _required;
+        }
+        else {
+            m_required = m_numOwners;
+        }
     }
 
     // Revokes a prior confirmation of the given operation
@@ -335,6 +342,8 @@ contract multiowned is WalletEmitter {
     // pointer used to find a free slot in m_owners
     uint public m_numOwners;
 
+    uint public version;
+
     // list of owners
     uint[256] m_owners;
     uint constant c_maxOwners = 250;
@@ -364,10 +373,12 @@ contract Wallet is multiowned {
 
     // constructor - just pass on the owner array to the multiowned and
     // the limit to daylimit
-    function Wallet(address[] _owners, uint _required, address _contractsManager, address _eventsHistory, bytes32 _name) multiowned(_owners, _required)  {
+    function Wallet(address[] _owners, uint _required, address _contractsManager, address _eventsHistory, bytes32 _name, bool _use2FA, uint _releaseTime) multiowned(_owners, _required)  {
         contractsManager = _contractsManager;
         eventsEmmiter = _eventsHistory;
         name = _name;
+        use2FA = _use2FA;
+        releaseTime = _releaseTime;
     }
 
     function getTokenAddresses() constant returns (address[] result) {
@@ -394,6 +405,9 @@ contract Wallet is multiowned {
 
     // kills the contract sending everything to `_to`.
     function kill(address _to) external returns (uint) {
+        if(releaseTime > now) {
+            return _emitError(WALLET_RELEASE_TIME_ERROR);
+        }
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -403,11 +417,12 @@ contract Wallet is multiowned {
             address token = tokens[i];
             uint balance = ERC20Interface(token).balanceOf(this);
             if(balance != 0)
-                ERC20Interface(token).transfer(_to,balance);
+            ERC20Interface(token).transfer(_to,balance);
         }
         selfdestruct(_to);
         address walletsManager = ContractsManager(contractsManager).getContractAddressByType(bytes32("WalletsManager"));
         return WalletsManagerInterface(walletsManager).removeWallet();
+
     }
 
     function setName(bytes32 _name) returns (uint) {
@@ -434,6 +449,9 @@ contract Wallet is multiowned {
     function transfer(address _to, uint _value, bytes32 _symbol) payable returns (uint) {
         if(!isOwner(msg.sender)) {
             return _emitError(WALLET_UNKNOWN_OWNER);
+        }
+        if(releaseTime > now) {
+            return _emitError(WALLET_RELEASE_TIME_ERROR);
         }
         if(use2FA) {
             address walletsManager = ContractsManager(contractsManager).getContractAddressByType(bytes32("WalletsManager"));
@@ -496,6 +514,7 @@ contract Wallet is multiowned {
             delete m_txs[_h];
             return OK;
         }
+        return _emitError(WALLET_INVALID_INVOCATION);
     }
 
     // INTERNAL METHODS
@@ -512,4 +531,5 @@ contract Wallet is multiowned {
     // pending transactions we have at present.
     mapping (bytes32 => Transaction) m_txs;
     bytes32 public name;
+    uint public releaseTime;
 }

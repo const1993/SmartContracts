@@ -5,10 +5,12 @@ import "./WalletsManagerEmitter.sol";
 import "../timeholder/FeatureFeeAdapter.sol";
 
 contract WalletsFactoryInterface {
-    function createWallet(address[] _owners, uint _required, address _contractsManager, address _eventsEmiter, bytes32 _name) returns(address);
+    function createWallet(address[] _owners, uint _required, address _contractsManager, address _eventsEmiter, bytes32 _name, bool _use2FA, uint _releaseTime) returns(address);
 }
 
 contract WalletInterface {
+    bytes32 public name;
+    bool public use2FA;
     function isOwner(address _addr) returns (bool);
 }
 
@@ -61,53 +63,29 @@ contract WalletsManager is WalletsManagerEmitter, FeatureFeeAdapter, BaseManager
         return WalletInterface(_wallet).isOwner(_owner);
     }
 
-    function getWallets() constant returns (address[] result) {
+    function getWallets() constant returns (address[] result, bytes32[] result2, bool[] result3) {
         StorageInterface.Iterator memory iterator = store.listIterator(wallets);
         address wallet;
         result = new address[](store.count(wallets));
+        result2 = new bytes32[](store.count(wallets));
+        result3 = new bool[](store.count(wallets));
         for(uint j = 0; store.canGetNextWithIterator(wallets, iterator);) {
             wallet = store.getNextWithIterator(wallets, iterator);
             if (isWalletOwner(wallet,msg.sender)) {
-                result[j++] = wallet;
+                result[j] = wallet;
+                result2[j] = WalletInterface(wallet).name();
+                result3[j++] = WalletInterface(wallet).use2FA();
             }
         }
+        return (result,result2,result3);
     }
 
-    function createWallet(address[] _owners, uint _required, bytes32 _name, bool _use2FA) returns (uint errorCode) {
-        return _createWallet(_owners, _required, _name, _use2FA, [uint(0)]);
-    }
-
-    function _createWallet(address[] _owners, uint _required, bytes32 _name, bool _use2FA, uint[1] memory _result)
-    featured(_result)
-    private returns (uint errorCode)
-    {
-        WalletsFactoryInterface factory = WalletsFactoryInterface(store.get(walletsFactory));
-        address _wallet;
-        if(_use2FA) {
-            address[] owners;
-            for(uint i=0;i<_owners.length;i++) {
-                owners.push(_owners[i]);
-            }
-            owners.push(getOracleAddress());
-            _wallet = factory.createWallet(owners,_required,contractsManager,getEventsHistory(),_name);
-        } else {
-            _wallet = factory.createWallet(_owners,_required,contractsManager,getEventsHistory(),_name);
-        }
-
-        MultiEventsHistoryInterface(getEventsHistory()).authorize(_wallet);
-        store.add(wallets, _wallet);
-        _emitWalletCreated(_wallet);
-        
-        _result[0] = OK;
-        return OK;
-    }
-
-    function setOraclePrice(uint _price) external returns (uint) {
+    function setOraclePrice(uint _price) external onlyAuthorized returns (uint) {
         store.set(oraclePrice,_price);
         return OK;
     }
 
-    function setOracleAddress(address _address) external returns (uint) {
+    function setOracleAddress(address _address) external onlyAuthorized returns (uint) {
         store.set(oracleAddress,_address);
         return OK;
     }
@@ -116,7 +94,11 @@ contract WalletsManager is WalletsManagerEmitter, FeatureFeeAdapter, BaseManager
         return _addWallet(_wallet, [uint(0)]);
     }
 
-    function _addWallet(address _wallet, uint[1] memory _result) private returns (uint) {
+    function _addWallet(address _wallet, uint[1] memory _result)
+    private
+    featured(_result)
+    returns (uint)
+    {
         bool r = _wallet.call.gas(3000).value(0)(bytes4(sha3("isOwner(address)")),msg.sender);
         if(!r) {
             return _emitError(ERROR_WALLET_UNKNOWN);
@@ -144,6 +126,52 @@ contract WalletsManager is WalletsManagerEmitter, FeatureFeeAdapter, BaseManager
         return _emitError(ERROR_WALLET_UNKNOWN);
     }
 
+    function createWallet(address[] _owners, uint _required, bytes32 _name, uint _releaseTime)
+    public
+    returns (uint errorCode)
+    {
+        return _createWallet(_owners, _required, _name, _releaseTime, [uint(0)]);
+    }
+
+    function _createWallet(address[] _owners, uint _required, bytes32 _name, uint _releaseTime, uint[1] memory _result)
+    private
+    featured(_result)
+    returns (uint errorCode)
+    {
+        WalletsFactoryInterface factory = WalletsFactoryInterface(store.get(walletsFactory));
+        address _wallet = factory.createWallet(_owners,_required,contractsManager,getEventsHistory(),_name, false, _releaseTime);
+        MultiEventsHistoryInterface(getEventsHistory()).authorize(_wallet);
+        store.add(wallets, _wallet);
+        _emitWalletCreated(_wallet);
+
+        _result[0] = OK;
+        return OK;
+    }
+
+    function create2FAWallet(bytes32 _name, uint _releaseTime)
+    public
+    returns (uint errorCode)
+    {
+        return _create2FAWallet(_name, _releaseTime, [uint(0)]);
+    }
+
+    function _create2FAWallet(bytes32 _name, uint _releaseTime, uint[1] memory _result)
+    private
+    featured(_result)
+    returns (uint errorCode)
+    {
+        WalletsFactoryInterface factory = WalletsFactoryInterface(store.get(walletsFactory));
+        address[] memory _owners = new address[](2);
+        _owners[0] = msg.sender;
+        _owners[1] = getOracleAddress();
+        address _wallet = factory.createWallet(_owners,2,contractsManager,getEventsHistory(),_name, true, _releaseTime);
+        store.add(wallets, _wallet);
+        _emitWalletCreated(_wallet);
+
+        _result[0] = OK;
+        return OK;
+    }
+
     function _emitError(uint error) internal returns (uint) {
         WalletsManager(getEventsHistory()).emitError(error);
         return error;
@@ -159,6 +187,6 @@ contract WalletsManager is WalletsManagerEmitter, FeatureFeeAdapter, BaseManager
 
     function()
     {
-        throw;
+        revert();
     }
 }

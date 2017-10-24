@@ -9,9 +9,9 @@ module.exports = function(deployer,network) {
     deployer
       .then(() => ERC20Manager.deployed())
       .then(_erc20Manager => saveTokens(_erc20Manager, tokens))
-      .then(() => console.log("[MIGRATION] [132] Setup etherscan tokens (20.10.2017): #done"))
+      .then(() => console.log("[MIGRATION] [" + parseInt(require("path").basename(__filename)) + "] Setup etherscan tokens (20.10.2017): #done"))
   } else {
-      console.log("[MIGRATION] [132] Setup etherscan tokens (20.10.2017): #skiped for ", network);
+      console.log("[MIGRATION] [" + parseInt(require("path").basename(__filename)) + "] Setup etherscan tokens (20.10.2017): #skiped for ", network)
   }
 }
 

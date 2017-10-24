@@ -35,7 +35,7 @@ contract("Integration test", function(accounts) {
         })
 
         it("should have in AssetsManager a tokens for system user", async () => {
-            let [tokenAddresses, totalSupplies] = await Setup.assetsManager.getAssetsForOwner.call(systemOwner, systemOwner)
+            let [tokenAddresses, totalSupplies] = await Setup.assetsManager.getSystemAssetsForOwner.call(systemOwner)
             assert.isAtLeast(tokenAddresses.length, 1)
 
             let lhtTokenAddr = await Setup.erc20Manager.getTokenAddressBySymbol.call(LHT_SYMBOL)
@@ -50,7 +50,7 @@ contract("Integration test", function(accounts) {
         })
 
         it("should have LOCWallet as one of owners of LHT token", async () => {
-            let [tokenAddresses, totalSupplies] = await Setup.assetsManager.getAssetsForOwner.call(LOCWallet.address, systemOwner)
+            let [tokenAddresses, totalSupplies] = await Setup.assetsManager.getSystemAssetsForOwner.call(LOCWallet.address)
             assert.isAtLeast(tokenAddresses.length, 1)
 
             let lhtTokenAddr = await Setup.erc20Manager.getTokenAddressBySymbol.call(LHT_SYMBOL)

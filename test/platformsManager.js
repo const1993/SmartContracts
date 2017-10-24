@@ -17,6 +17,7 @@ contract("PlatformsManager", function (accounts) {
     const createPlatform = async (platformOwner) => {
         let createdPlatform = await ChronoBankPlatform.new({ from: platformOwner })
         await createdPlatform.setupEventsHistory(Setup.multiEventsHistory.address, { from: platformOwner })
+        await createdPlatform.setupEventsAdmin(Setup.platformsManager.address, { from: platformOwner })
         await Setup.multiEventsHistory.authorize(createdPlatform.address, { from: systemOwner })
         return createdPlatform
     }

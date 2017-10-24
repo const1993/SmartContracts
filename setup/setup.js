@@ -26,6 +26,7 @@ const VoteActor = artifacts.require("./VoteActor.sol");
 const PollManager = artifacts.require("./PollManager.sol");
 const PollDetails = artifacts.require("./PollDetails.sol");
 const PlatformTokenExtensionGatewayManager = artifacts.require('./PlatformTokenExtensionGatewayManager.sol')
+const AssetOwnershipDelegateResolver = artifacts.require('./AssetOwnershipDelegateResolver.sol')
 //const CrowdsaleManager = artifacts.require("./CrowdsaleManager.sol");
 
 const contractTypes = {
@@ -43,7 +44,8 @@ const contractTypes = {
   VotingActor: "VoteActor",
   VotingDetails: "PollDetails",
   CrowdsaleManager: "CrowdsaleManager",
-  TokenExtensionGateway: "TokenExtensionGateway"
+  TokenExtensionGateway: "TokenExtensionGateway",
+  AssetOwnershipResolver: "AssetOwnershipResolver"
 }
 
 let storage
@@ -73,6 +75,7 @@ let multiEventsHistory
 let storageManager
 let crowdsaleManager
 let tokenExtensionGateway
+let assetOwnershipDelegateResolver
 
 let accounts
 let params
@@ -126,7 +129,8 @@ var setup = function (callback) {
       TimeHolderWallet.deployed(),
       MultiEventsHistory.deployed(),
       StorageManager.deployed(),
-      PlatformTokenExtensionGatewayManager.deployed()
+      PlatformTokenExtensionGatewayManager.deployed(),
+      AssetOwnershipDelegateResolver.deployed()
       //CrowdsaleManager.deployed()
     ])
   }).then((instances) => {
@@ -156,7 +160,8 @@ var setup = function (callback) {
       timeHolderWallet,
       multiEventsHistory,
       storageManager,
-      tokenExtensionGateway
+      tokenExtensionGateway,
+      assetOwnershipDelegateResolver
       //crowdsaleManager
     ] = instances
   }).then(() => {
@@ -185,6 +190,8 @@ var setup = function (callback) {
     module.exports.multiEventsHistory = multiEventsHistory
     module.exports.storageManager = storageManager
     module.exports.tokenExtensionGateway = tokenExtensionGateway
+    module.exports.assetOwnershipResolver = assetOwnershipDelegateResolver
+
     //module.exports.crowdsaleManager = crowdsaleManager
   }).then(() => {
     callback()

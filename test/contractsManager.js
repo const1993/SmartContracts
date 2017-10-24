@@ -102,6 +102,12 @@ contract('Contracts Manager', function(accounts) {
       });
     });
 
+    it("can provide Asset Ownership Resolver details address.", function() {
+      return Setup.contractsManager.getContractAddressByType.call(Setup.contractTypes.AssetOwnershipResolver).then(function(r) {
+        assert.equal(r,Setup.assetOwnershipResolver.address);
+      });
+    });
+
     it("can provide Token Extension Gateway Manager address.", async () => {
       let storedAddress = await Setup.contractsManager.getContractAddressByType.call(Setup.contractTypes.TokenExtensionGateway)
       assert.equal(storedAddress, Setup.tokenExtensionGateway.address);

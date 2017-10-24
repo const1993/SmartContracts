@@ -8,6 +8,7 @@ import "./PlatformsManagerEmitter.sol";
 import "./AssetsManagerInterface.sol";
 import "./PlatformsManagerInterface.sol";
 import "../core/platform/ChronoBankPlatform.sol";
+import "./AssetOwnershipDelegateResolver.sol";
 
 
 contract PlatformsFactory {
@@ -31,6 +32,10 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     uint constant ERROR_PLATFORMS_PLATFORM_DOES_NOT_EXIST = 21002;
     uint constant ERROR_PLATFORMS_INCONSISTENT_INTERNAL_STATE = 21003;
     uint constant ERROR_PLATFORMS_UPDATE_PLATFORM_METADATA_THE_SAME_NAME = 21004;
+    uint constant ERROR_PLATFORMS_REPEAT_SYNC_IS_NOT_COMPLETED = 21005;
+
+    uint constant PLATFORM_ATTACH_SYNC_DONE = 2**255;
+    uint constant PLATFORM_DETACH_SYNC_DONE = 2**255-1;
 
     /** Storage keys */
 
@@ -45,6 +50,9 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
     /** TODO */
     StorageInterface.AddressBytes32Mapping platformToName;
+
+    /** TODO */
+    StorageInterface.AddressUIntMapping syncPlatformToSymbolIdx;
 
     /**
     * @dev TODO
@@ -69,6 +77,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
         ownerToPlatforms.init("ownerToPlatforms");
         platforms.init("platforms");
         platformToName.init("platformToName");
+        syncPlatformToSymbolIdx.init("syncPlatformToSymbolIdx");
     }
 
     function init(address _contractsManager, address _platformsFactory) onlyContractOwner public returns (uint) {
@@ -127,22 +136,35 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     /**
     * @dev TODO
     */
+    function isPlatformAttached(address _platform) public constant returns (bool) {
+        return store.includes(platforms, _platform);
+    }
+
+    /**
+    * @dev TODO
+    */
     function attachPlatform(address _platform, bytes32 _name) onlyPlatformOwner(_platform) public returns (uint resultCode) {
         if (store.includes(platforms, _platform)) {
             return _emitError(ERROR_PLATFORMS_ATTACHING_PLATFORM_ALREADY_EXISTS);
         }
 
+        resultCode = _syncAssetsInPlatformBeforeAttach(_platform);
+        if (resultCode != OK) {
+            return _emitError(resultCode);
+        }
+
         _attachPlatformWithoutValidation(_platform, _name, OwnedContract(_platform).contractOwner());
+        require(OK == ChronoBankPlatform(_platform).setupEventsHistory(getEventsHistory()));
+
         _emitPlatformAttached(_platform);
 
-        ChronoBankPlatform(_platform).setupEventsHistory(getEventsHistory());
         return OK;
     }
 
     /**
     * @dev TODO
     */
-    function detachPlatform(address _platform) onlyPlatformOwner(_platform) public returns (uint) {
+    function detachPlatform(address _platform) onlyPlatformOwner(_platform) public returns (uint resultCode) {
         if (!store.includes(platforms, _platform)) {
             return _emitError(ERROR_PLATFORMS_PLATFORM_DOES_NOT_EXIST);
         }
@@ -153,7 +175,12 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
             return _emitError(ERROR_PLATFORMS_INCONSISTENT_INTERNAL_STATE);
         }
 
-        ChronoBankPlatform(_platform).setupEventsHistory(_platform);
+        resultCode = _syncAssetsInPlatformBeforeDetach(_platform);
+        if (resultCode != OK) {
+            return _emitError(resultCode);
+        }
+
+        assert(OK == ChronoBankPlatform(_platform).setupEventsHistory(_platform));
 
         store.remove(ownerToPlatforms, bytes32(_owner), _platform);
         store.remove(platforms, _platform);
@@ -214,6 +241,84 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     */
     function _isPlatformOwner(address _platform) private constant returns (bool) {
         return OwnedContract(_platform).contractOwner() == msg.sender;
+    }
+
+    /**
+    * @dev TODO private
+    */
+    function _syncAssetsInPlatformBeforeAttach(address _platform) private returns (uint resultCode) {
+        uint _lastSyncIdx = store.get(syncPlatformToSymbolIdx, _platform);
+        if (_lastSyncIdx == PLATFORM_DETACH_SYNC_DONE) {
+            _lastSyncIdx = 0;
+        }
+
+        if (_lastSyncIdx != PLATFORM_ATTACH_SYNC_DONE) {
+            AssetOwningListener _assetOwnershipResolver = AssetOwningListener(lookupManager("AssetOwnershipResolver"));
+            resultCode = _runThroughPlatform(_lastSyncIdx, _platform, _assetOwnershipResolver.assetOwnerAdded);
+            if (resultCode != OK) {
+                return resultCode;
+            }
+
+            store.set(syncPlatformToSymbolIdx, _platform, PLATFORM_ATTACH_SYNC_DONE);
+        }
+
+        return OK;
+    }
+
+    /**
+    * @dev TODO private
+    */
+    function _syncAssetsInPlatformBeforeDetach(address _platform) private returns (uint resultCode) {
+        uint _lastSyncIdx = store.get(syncPlatformToSymbolIdx, _platform);
+        if (_lastSyncIdx == PLATFORM_ATTACH_SYNC_DONE) {
+            _lastSyncIdx = 0;
+        }
+
+        if (_lastSyncIdx != PLATFORM_DETACH_SYNC_DONE) {
+            AssetOwningListener _assetOwnershipResolver = AssetOwningListener(lookupManager("AssetOwnershipResolver"));
+            resultCode = _runThroughPlatform(_lastSyncIdx, _platform, _assetOwnershipResolver.assetOwnerRemoved);
+            if (resultCode != OK) {
+                return resultCode;
+            }
+
+            store.set(syncPlatformToSymbolIdx, _platform, PLATFORM_DETACH_SYNC_DONE);
+        }
+
+        return OK;
+    }
+
+
+    function _runThroughPlatform(uint _lastSyncIdx, address _platform, function (bytes32, address, address) external ownerUpdate) private returns (uint) {
+        ChronoBankAssetOwnershipManager _chronoBankPlatform = ChronoBankAssetOwnershipManager(_platform);
+        ChronoBankManagersRegistry _chronoBankRegistry = ChronoBankManagersRegistry(_platform);
+
+        uint _symbolsCount = _chronoBankPlatform.symbolsCount();
+        uint _holdersCount = _chronoBankRegistry.holdersCount();
+
+        bool _shouldInitHolders = true;
+        address[] memory _holders = new address[](_holdersCount);
+
+        for (; _lastSyncIdx < _symbolsCount; ++_lastSyncIdx) {
+            if (msg.gas < 100000) {
+                store.set(syncPlatformToSymbolIdx, _platform, _lastSyncIdx);
+                return ERROR_PLATFORMS_REPEAT_SYNC_IS_NOT_COMPLETED;
+            }
+
+            bytes32 _symbol = _chronoBankPlatform.symbols(_lastSyncIdx);
+            for (uint _holderIdx = 0; _holderIdx < _holdersCount; ++_holderIdx) {
+                if (_shouldInitHolders) {
+                    _holders[_holderIdx] = _chronoBankRegistry.holders(_holderIdx);
+                }
+
+                if (_chronoBankPlatform.hasAssetRights(_holders[_holderIdx], _symbol)) {
+                    ownerUpdate(_symbol, _platform, _holders[_holderIdx]);
+                }
+            }
+
+            _shouldInitHolders = false;
+        }
+
+        return OK;
     }
 
     /**

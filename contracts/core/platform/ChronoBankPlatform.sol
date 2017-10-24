@@ -370,6 +370,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function addAssetPartOwner(bytes32 _symbol, address _partowner) onlyOneOfOwners(_symbol) public returns (uint) {
         uint holderId = _createHolderId(_partowner);
         assets[_symbol].partowners[holderId] = true;
+        ChronoBankPlatformEmitter(eventsHistory).emitOwnershipChange(0x0, _partowner, _symbol);
         return OK;
     }
 
@@ -385,6 +386,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     function removeAssetPartOwner(bytes32 _symbol, address _partowner) onlyOneOfOwners(_symbol) public returns (uint) {
         uint holderId = getHolderId(_partowner);
         delete assets[_symbol].partowners[holderId];
+        ChronoBankPlatformEmitter(eventsHistory).emitOwnershipChange(_partowner, 0x0, _symbol);
         return OK;
     }
 

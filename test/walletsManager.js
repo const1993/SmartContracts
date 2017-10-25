@@ -180,105 +180,113 @@ contract('Wallets Manager', function(accounts) {
             })
         })
 
-    it("shouldn't be able to multisig send ETH if balance not enough", function() {
-        return wallet.transfer.call(owner3, 6000, 'ETH').then(function (r) {
-            assert.equal(r,14019)
+        it("shouldn't be able to multisig send ETH if balance not enough", function() {
+            return wallet.transfer.call(owner3, 6000, 'ETH').then(function (r) {
+                assert.equal(r,14019)
+            })
         })
-    })
 
-    it("should be able to multisig send ERC20", function() {
-        return wallet.transfer.call(owner3,5000,'TOKEN', {from: owner}).then(function(r) {
-            return wallet.transfer(owner3,5000,'TOKEN', {from: owner}).then(function(tx) {
-                return eventsHelper.getEvents(tx, watcher)
-            }).then(function (events) {
-                assert.notEqual(events.length, 0)
-                const confirmationHash = events[0].args.operation
-                return wallet.confirm.call(confirmationHash, {from:owner1}).then(function(r2) {
-                    return wallet.confirm(confirmationHash, {from:owner1}).then(function() {
-                        return coin.balanceOf.call(owner3).then(function(r3)
-                        {
-                            assert.equal(r, 14014)
-                            assert.equal(r2, 1)
-                            assert.equal(r3, 5000)
+        it("should be able to multisig send ERC20", function() {
+            return wallet.transfer.call(owner3,5000,'TOKEN', {from: owner}).then(function(r) {
+                return wallet.transfer(owner3,5000,'TOKEN', {from: owner}).then(function(tx) {
+                    return eventsHelper.getEvents(tx, watcher)
+                }).then(function (events) {
+                    assert.notEqual(events.length, 0)
+                    const confirmationHash = events[0].args.operation
+                    return wallet.confirm.call(confirmationHash, {from:owner1}).then(function(r2) {
+                        return wallet.confirm(confirmationHash, {from:owner1}).then(function() {
+                            return coin.balanceOf.call(owner3).then(function(r3)
+                            {
+                                assert.equal(r, 14014)
+                                assert.equal(r2, 1)
+                                assert.equal(r3, 5000)
+                            })
                         })
                     })
                 })
             })
         })
-    })
 
-    it("shouldn't be able to multisig send ERC20 if balance no enough", function() {
-        return wallet.transfer.call(owner3,6000,'TOKEN', {from: owner}).then(function(r) {
-            assert.equal(r,14019)
+        it("shouldn't be able to multisig send ERC20 if balance no enough", function() {
+            return wallet.transfer.call(owner3,6000,'TOKEN', {from: owner}).then(function(r) {
+                assert.equal(r,14019)
+            })
         })
-    })
 
-    it("should multisig change owner", function() {
-        return wallet.isOwner.call(owner1).then(function(r) {
-            assert.isTrue(r)
-            return wallet.isOwner.call(owner2).then(function (r) {
+        it("should multisig change owner", function() {
+            return wallet.isOwner.call(owner1).then(function(r) {
+                assert.isTrue(r)
+                return wallet.isOwner.call(owner2).then(function (r) {
+                    assert.isFalse(r)
+                    return wallet.changeOwner(owner1, owner2).then(function () {
+                        return wallet.changeOwner(owner1, owner2, {from:owner1}).then(function () {
+                            return wallet.isOwner.call(owner1).then(function (r) {
+                                assert.isFalse(r)
+                                return wallet.isOwner.call(owner2).then(function (r) {
+                                    assert.isTrue(r)
+                                })
+                            })
+                        })
+                    })
+                })
+            })
+        })
+
+        it("should multisig add owner", function() {
+            return wallet.isOwner.call(owner1).then(function(r) {
                 assert.isFalse(r)
-                return wallet.changeOwner(owner1, owner2).then(function () {
-                    return wallet.changeOwner(owner1, owner2, {from:owner1}).then(function () {
+                return wallet.addOwner(owner1).then(function () {
+                    return wallet.addOwner(owner1, {from:owner2}).then(function () {
                         return wallet.isOwner.call(owner1).then(function (r) {
-                            assert.isFalse(r)
-                            return wallet.isOwner.call(owner2).then(function (r) {
-                                assert.isTrue(r)
+                            assert.isTrue(r)
+                        })
+                    })
+                })
+            })
+        })
+
+        it("should multisig change requirement", function() {
+            return wallet.m_required.call().then(function(r) {
+                assert.equal(r,2)
+                return wallet.changeRequirement(3).then(function() {
+                    return wallet.changeRequirement(3,{from:owner1}).then(function() {
+                        return wallet.m_required.call().then(function (r) {
+                            assert.equal(r, 3)
+                        })
+                    })
+                })
+            })
+        })
+
+        it("should multisig kill and transfer funds", function() {
+            return coin.balanceOf.call(wallet.address).then(function (r) {
+                const wallet_erc20_balance = r
+                const wallet_eth_balance = web3.eth.getBalance(wallet.address)
+                const old_balance = web3.eth.getBalance(owner4)
+                return wallet.kill(owner4, {from: owner}).then(function () {
+                    return wallet.kill(owner4, {from: owner1}).then(function () {
+                        return wallet.kill.call(owner4, {from: owner2}).then(function (r) {
+                            return wallet.kill(owner4, {from: owner2}).then(function () {
+                                return coin.balanceOf.call(owner4).then(function (r2) {
+                                    const new_balance = web3.eth.getBalance(owner4)
+                                    assert(r, 1)
+                                    assert.isTrue(new_balance.equals(old_balance.add(wallet_eth_balance)))
+                                    assert.isTrue(wallet_erc20_balance.equals(r2))
+                                })
                             })
                         })
                     })
                 })
             })
         })
-    })
 
-    it("should multisig add owner", function() {
-        return wallet.isOwner.call(owner1).then(function(r) {
-            assert.isFalse(r)
-            return wallet.addOwner(owner1).then(function () {
-                return wallet.addOwner(owner1, {from:owner2}).then(function () {
-                    return wallet.isOwner.call(owner1).then(function (r) {
-                        assert.isTrue(r)
-                    })
-                })
-            })
-        })
-    })
+        it("should allow to set multisig oracle address", function() {
 
-    it("should multisig change requirement", function() {
-        return wallet.m_required.call().then(function(r) {
-            assert.equal(r,2)
-            return wallet.changeRequirement(3).then(function() {
-                return wallet.changeRequirement(3,{from:owner1}).then(function() {
-                    return wallet.m_required.call().then(function (r) {
-                        assert.equal(r, 3)
-                    })
-                })
-            })
-        })
-    })
+        }
 
-    it("should multisig kill and transfer funds", function() {
-        return coin.balanceOf.call(wallet.address).then(function (r) {
-            const wallet_erc20_balance = r
-            const wallet_eth_balance = web3.eth.getBalance(wallet.address)
-            const old_balance = web3.eth.getBalance(owner4)
-            return wallet.kill(owner4, {from: owner}).then(function () {
-                return wallet.kill(owner4, {from: owner1}).then(function () {
-                    return wallet.kill.call(owner4, {from: owner2}).then(function (r) {
-                        return wallet.kill(owner4, {from: owner2}).then(function () {
-                            return coin.balanceOf.call(owner4).then(function (r2) {
-                                const new_balance = web3.eth.getBalance(owner4)
-                                assert(r, 1)
-                                assert.isTrue(new_balance.equals(old_balance.add(wallet_eth_balance)))
-                                assert.isTrue(wallet_erc20_balance.equals(r2))
-                            })
-                        })
-                    })
-                })
-            })
-        })
-    })
+        it("should allow to set multisig oracle price", function() {
 
-})
+        }
+
+    })
 })

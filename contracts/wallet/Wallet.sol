@@ -9,7 +9,7 @@
 // some number (specified in constructor) of the set of owners (specified in the constructor, modifiable) before the
 // interior is executed.
 
-pragma solidity ^0.4.10;
+pragma solidity ^0.4.11;
 
 import {ERC20ManagerInterface as ERC20Manager} from "../core/erc20/ERC20ManagerInterface.sol";
 import {ContractsManagerInterface as ContractsManager} from "../core/contracts/ContractsManagerInterface.sol";
@@ -18,6 +18,8 @@ import "./WalletEmitter.sol";
 
 contract WalletsManagerInterface {
     function removeWallet() returns (uint);
+    function getOracleAddress() constant returns (address);
+    function getOraclePrice() constant returns (uint);
 }
 
 contract multiowned is WalletEmitter {
@@ -84,6 +86,9 @@ contract multiowned is WalletEmitter {
 
     // Replaces an owner `_from` with another `_to`.
     function changeOwner(address _from, address _to) external returns (uint) {
+        if(use2FA) {
+            return _emitError(WALLET_INVALID_INVOCATION);
+        }
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -100,6 +105,9 @@ contract multiowned is WalletEmitter {
     }
 
     function addOwner(address _owner) external returns (uint) {
+        if(use2FA) {
+            return _emitError(WALLET_INVALID_INVOCATION);
+        }
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -119,6 +127,9 @@ contract multiowned is WalletEmitter {
     }
 
     function removeOwner(address _owner) external returns (uint) {
+        if(use2FA) {
+            return _emitError(WALLET_INVALID_INVOCATION);
+        }
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -136,6 +147,9 @@ contract multiowned is WalletEmitter {
     }
 
     function changeRequirement(uint _newRequired) external returns (uint) {
+        if(use2FA) {
+            return _emitError(WALLET_INVALID_INVOCATION);
+        }
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -223,6 +237,41 @@ contract multiowned is WalletEmitter {
         }
     }
 
+    function toggle2FA() returns (uint) {
+        // determine what index the present sender is and make sure they're an owner
+        if (m_ownerIndex[uint(msg.sender)] == 0) {
+            return _emitError(WALLET_UNKNOWN_OWNER);
+        }
+
+        address walletsManager = ContractsManager(contractsManager).getContractAddressByType(bytes32("WalletsManager"));
+        address oracleAddress = WalletsManagerInterface(walletsManager).getOracleAddress();
+
+        if(oracleAddress == address(0)) {
+            return _emitError(WALLET_INVALID_INVOCATION);
+        }
+
+        if(!use2FA && m_required == 1) {
+            use2FA = true;
+            m_required = 2;
+            clearPending();
+            m_numOwners++;
+            m_owners[m_numOwners] = uint(oracleAddress);
+            m_ownerIndex[uint(oracleAddress)] = m_numOwners;
+            return OK;
+        } else {
+            if(use2FA && m_required == 2 && m_ownerIndex[uint(oracleAddress)] == 1) {
+                use2FA = false;
+                m_required = 1;
+                uint ownerIndex = m_ownerIndex[uint(oracleAddress)];
+                m_owners[ownerIndex] = 0;
+                m_ownerIndex[uint(oracleAddress)] = 0;
+                clearPending();
+                reorganizeOwners(); //make sure m_numOwner is equal to the number of owners and always points to the optimal free slot
+                return OK;
+            }
+        }
+    }
+
     function clearPending() internal {
         uint length = m_pendingIndex.length;
         for (uint i = 0; i < length; ++i)
@@ -278,6 +327,9 @@ contract multiowned is WalletEmitter {
 
    	// FIELDS
 
+    // wallets use 2FA oracle
+    bool public use2FA;
+
     // the number of owners that must confirm the same operation before it is run.
     uint public m_required;
     // pointer used to find a free slot in m_owners
@@ -328,6 +380,18 @@ contract Wallet is multiowned {
         return result;
     }
 
+    function getPendings() constant returns (address[] result1, uint[] result2, bytes32[] result3) {
+        result1 = new address[](m_pendingIndex.length);
+        result2 = new uint[](m_pendingIndex.length);
+        result3 = new bytes32[](m_pendingIndex.length);
+        for(uint i=0;i<m_pendingIndex.length;i++) {
+            result1[i] = m_txs[m_pendingIndex[i]].to;
+            result2[i] = m_txs[m_pendingIndex[i]].value;
+            result3[i] = m_txs[m_pendingIndex[i]].symbol;
+        }
+        return (result1,result2,result3);
+    }
+
     // kills the contract sending everything to `_to`.
     function kill(address _to) external returns (uint) {
         uint e = confirmAndCheck(sha3(msg.data));
@@ -351,7 +415,6 @@ contract Wallet is multiowned {
         if (m_ownerIndex[uint(msg.sender)] == 0) {
             return _emitError(WALLET_UNKNOWN_OWNER);
         }
-
         name = _name;
 
         return OK;
@@ -368,17 +431,31 @@ contract Wallet is multiowned {
     // If not, goes into multisig process. We provide a hash on return to allow the sender to provide
     // shortcuts for the other confirmations (allowing them to avoid replicating the _to, _value
     // and _data arguments). They still get the option of using them if they want, anyways.
-    function transfer(address _to, uint _value, bytes32 _symbol) external returns (uint) {
+    function transfer(address _to, uint _value, bytes32 _symbol) payable returns (uint) {
         if(!isOwner(msg.sender)) {
             return _emitError(WALLET_UNKNOWN_OWNER);
         }
-        if(_symbol == bytes32('ETH')) {
+        if(use2FA) {
+            address walletsManager = ContractsManager(contractsManager).getContractAddressByType(bytes32("WalletsManager"));
+            uint oraclePrice = WalletsManagerInterface(walletsManager).getOraclePrice();
+            address oracleAddress = WalletsManagerInterface(walletsManager).getOracleAddress();
+            if(oraclePrice == 0 || oracleAddress == address(0)) {
+                return _emitError(WALLET_INVALID_INVOCATION);
+            }
+            if(msg.value < oraclePrice) {
+                return _emitError(WALLET_INVALID_INVOCATION);
+            }
+            if(!oracleAddress.send(msg.value)) {
+                return _emitError(WALLET_INVALID_INVOCATION);
+            }
+        }
+        if(_symbol == bytes32('ETH') || _symbol == bytes32(0)) {
             if(this.balance < _value) {
                 return _emitError(WALLET_INSUFFICIENT_BALANCE);
             }
         } else {
             address erc20Manager = ContractsManager(contractsManager).getContractAddressByType(bytes32("ERC20Manager"));
-            if(_symbol != bytes32('ETH') && ERC20Manager(erc20Manager).getTokenAddressBySymbol(_symbol) == 0)
+            if(ERC20Manager(erc20Manager).getTokenAddressBySymbol(_symbol) == 0)
             return _emitError(WALLET_UNKNOWN_TOKEN_TRANSFER);
             else {
                 address token = ERC20Manager(erc20Manager).getTokenAddressBySymbol(_symbol);

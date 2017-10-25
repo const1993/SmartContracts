@@ -49,6 +49,18 @@ contract multiowned is WalletEmitter {
         uint index;
     }
 
+    modifier non2FA() {
+        if(use2FA) {
+            uint errorCode = WALLET_INVALID_INVOCATION;
+            assembly {
+                mstore(0, errorCode)
+                return(0, 32)
+            }
+        }
+        assert(!use2FA);
+
+        _;
+    }
 	// METHODS
 
     function getEventsHistory() constant returns (address) {
@@ -92,10 +104,7 @@ contract multiowned is WalletEmitter {
     }
 
     // Replaces an owner `_from` with another `_to`.
-    function changeOwner(address _from, address _to) external returns (uint) {
-        if(use2FA) {
-            return _emitError(WALLET_INVALID_INVOCATION);
-        }
+    function changeOwner(address _from, address _to) external non2FA returns (uint) {
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -111,10 +120,7 @@ contract multiowned is WalletEmitter {
         return OK;
     }
 
-    function addOwner(address _owner) external returns (uint) {
-        if(use2FA) {
-            return _emitError(WALLET_INVALID_INVOCATION);
-        }
+    function addOwner(address _owner) external non2FA returns (uint) {
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -133,10 +139,7 @@ contract multiowned is WalletEmitter {
         return OK;
     }
 
-    function removeOwner(address _owner) external returns (uint) {
-        if(use2FA) {
-            return _emitError(WALLET_INVALID_INVOCATION);
-        }
+    function removeOwner(address _owner) external non2FA returns (uint) {
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);
@@ -153,10 +156,7 @@ contract multiowned is WalletEmitter {
         return OK;
     }
 
-    function changeRequirement(uint _newRequired) external returns (uint) {
-        if(use2FA) {
-            return _emitError(WALLET_INVALID_INVOCATION);
-        }
+    function changeRequirement(uint _newRequired) external non2FA returns (uint) {
         uint e = confirmAndCheck(sha3(msg.data));
         if(OK != e) {
             return _emitError(e);

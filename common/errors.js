@@ -142,6 +142,17 @@ const errorsLibrary = {
     ERROR_WALLET_CANNOT_ADD_TO_REGISTRY: errorScope.walletsmanager + 3,
     ERROR_WALLET_UNKNOWN: errorScope.walletsmanager + 4,
 
+    WALLET_INVALID_INVOCATION: errorScope.walletsmanager + 10,
+    WALLET_UNKNOWN_OWNER: errorScope.walletsmanager + 12,
+    WALLET_OWNER_ALREADY_EXISTS: errorScope.walletsmanager + 13,
+    WALLET_CONFIRMATION_NEEDED: errorScope.walletsmanager + 14,
+    WALLET_UNKNOWN_OPERATION: errorScope.walletsmanager + 15,
+    WALLET_OWNERS_LIMIT_EXIDED: errorScope.walletsmanager + 16,
+    WALLET_UNKNOWN_TOKEN_TRANSFER: errorScope.walletsmanager + 17,
+    WALLET_TRANSFER_ALREADY_REGISTERED: errorScope.walletsmanager + 18,
+    WALLET_INSUFFICIENT_BALANCE: errorScope.walletsmanager + 19,
+    WALLET_RELEASE_TIME_ERROR: errorScope.walletsmanager + 20,
+
     CHRONOBANK_PLATFORM_PROXY_ALREADY_EXISTS: errorScope.chronobankplatform + 0,
     CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF: errorScope.chronobankplatform + 1,
     CHRONOBANK_PLATFORM_INVALID_VALUE: errorScope.chronobankplatform + 2,
@@ -162,7 +173,7 @@ const errorsLibrary = {
     PLATFORMS_PLATFORM_DOES_NOT_EXIST: errorScope.platforms + 2,
     PLATFORMS_INCONSISTENT_INTERNAL_STATE: errorScope.platforms + 3,
     PLATFORMS_UPDATE_PLATFORM_METADATA_THE_SAME_NAME: errorScope.platforms + 4,
-    PLATFORMS_REPEAT_SYNC_IS_NOT_COMPLETED: errorScope.platforms + 5
+    PLATFORMS_REPEAT_SYNC_IS_NOT_COMPLETED: errorScope.platforms + 5,
 
     TOKEN_EXTENSION_ASSET_TOKEN_EXISTS: errorScope.tokenextension + 1,
     TOKEN_EXTENSION_ASSET_COULD_NOT_BE_REISSUED: errorScope.tokenextension + 2,

@@ -6,6 +6,8 @@ const LOCWallet = artifacts.require('./LOCWallet.sol')
 const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 const bytes32fromBase58 = require('../test/helpers/bytes32fromBase58')
+const eventsHelper = require('../test/helpers/eventsHelper')
+const platfromSearcher = require('../test/helpers/searchChronoBankPlatforms')
 
 module.exports = function(deployer, network, accounts) {
     //----------
@@ -33,8 +35,20 @@ module.exports = function(deployer, network, accounts) {
     .then(_manager => assetsManager = _manager)
 
     .then(() => platformsManager.createPlatform("ChronoBank"))
-    .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
-    .then(_platformMeta => platformAddr = _platformMeta[0])
+    .then(_tx => {
+        // return Promise.resolve()
+        // .then(() => )
+        console.log("logs", _tx.logs)
+        let event = eventsHelper.extractEvents(_tx, "PlatformRequested")[0]
+        if (event !== undefined) {
+            return event.args.platform
+        } else {
+            return Promise.resolve()
+            .then(() => platfromSearcher.findPlatformsByName(systemOwner, platfromSearcher.ChronoBankPlatformName, platformsManager))
+            .then(_platforms => _platforms[0])
+        }
+    })
+    .then(_platformAddr => platformAddr = _platformAddr)
     .then(() => assetsManager.getTokenExtension.call(platformAddr))
     .then(_tokenExtensionAddr => TokenManagementInterface.at(_tokenExtensionAddr))
     .then(_tokenExtension => tokenExtension = _tokenExtension)

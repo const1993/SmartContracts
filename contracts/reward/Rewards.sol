@@ -382,7 +382,7 @@ contract Rewards is Deposits, RewardsEmitter {
         uint endBalance = ERC20Interface(_asset).balanceOf(_wallet);
         uint diff = startBalance - endBalance;
         if (rewardsFor(_asset, _address) < diff) {
-            throw;
+            revert();
         }
 
         store.set(rewards,_asset,_address,store.get(rewards,_asset,_address) - diff);
@@ -521,6 +521,6 @@ contract Rewards is Deposits, RewardsEmitter {
     }
 
     function() {
-        throw;
+        revert();
     }
 }

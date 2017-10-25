@@ -52,7 +52,7 @@ contract AssetsManagerMock is AssetsManagerInterface {
     }
 
     function() {
-        throw;
+        revert();
     }
 
     function getAssetsForOwner(address platform, address owner) constant returns (bytes32[]) {
@@ -72,10 +72,10 @@ contract AssetsManagerMock is AssetsManagerInterface {
     }
 
     function getTokenExtension(address _platform) constant returns (address) {
-        throw;
+        revert();
     }
 
     function requestTokenExtension(address _platform) returns (uint) {
-        throw;
+        revert();
     }
 }

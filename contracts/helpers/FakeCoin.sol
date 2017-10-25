@@ -14,11 +14,11 @@ contract FakeCoin {
     function totalSupply() constant returns(uint) {
         return 0;
     }
-    
+
     function symbol() constant returns(string) {
         return 'FAKE';
     }
-    
+
     function decimals() constant returns(uint) {
         return 4;
     }
@@ -42,8 +42,9 @@ contract FakeCoin {
     }
 
     function () payable {
-        if(msg.value == 0)
-        throw;
+        if(msg.value == 0) {
+            revert();
+        }            
     }
 
 }

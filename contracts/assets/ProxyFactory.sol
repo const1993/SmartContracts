@@ -24,6 +24,6 @@ contract ProxyFactory {
     }
 
     function() {
-        throw;
+        revert();
     }
 }

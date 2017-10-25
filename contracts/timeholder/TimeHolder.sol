@@ -369,6 +369,6 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     }
 
     function() {
-        throw;
+        revert();
     }
 }

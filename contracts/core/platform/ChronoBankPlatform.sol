@@ -778,7 +778,14 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
         if (_senderId == _spenderId) {
             return _error(CHRONOBANK_PLATFORM_CANNOT_APPLY_TO_ONESELF);
         }
+
+        // Double Spend Attack checkpoint
+        if (assets[_symbol].wallets[_senderId].allowance[_spenderId] != 0 && _value != 0) {
+            return _error(CHRONOBANK_PLATFORM_INVALID_INVOCATION);
+        }
+
         assets[_symbol].wallets[_senderId].allowance[_spenderId] = _value;
+
         // Internal Out Of Gas/Throw: revert this transaction too;
         // Call Stack Depth Limit reached: revert this transaction too;
         // Recursive Call: safe, all changes already made.

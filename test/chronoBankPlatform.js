@@ -2177,7 +2177,7 @@ context("with one CBE key", function(){
       assert.equal(result.valueOf(), value);
     });
   });
-  it('should be possible to override allowance value with non 0 value', function() {
+  it('should not be possible to override allowance value with non 0 value', function() {
     var holder = accounts[0];
     var spender = accounts[1];
     var value = 1000;
@@ -2188,7 +2188,7 @@ context("with one CBE key", function(){
     }).then(function() {
       return chronoBankPlatform.allowance.call(holder, spender, SYMBOL);
     }).then(function(result) {
-      assert.equal(result.valueOf(), value);
+      assert.equal(result.valueOf(), 100);
     });
   });
   it('should not affect balance when setting allowance', function() {

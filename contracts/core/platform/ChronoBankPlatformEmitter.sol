@@ -11,8 +11,8 @@ import '../event/MultiEventsHistoryAdapter.sol';
  */
 contract ChronoBankPlatformEmitter is MultiEventsHistoryAdapter {
     event Transfer(address indexed from, address indexed to, bytes32 indexed symbol, uint value, string reference);
-    event Issue(bytes32 indexed symbol, uint value, address by);
-    event Revoke(bytes32 indexed symbol, uint value, address by);
+    event Issue(bytes32 indexed symbol, uint value, address indexed by);
+    event Revoke(bytes32 indexed symbol, uint value, address indexed by);
     event OwnershipChange(address indexed from, address indexed to, bytes32 indexed symbol);
     event Approve(address indexed from, address indexed spender, bytes32 indexed symbol, uint value);
     event Recovery(address indexed from, address indexed to, address by);

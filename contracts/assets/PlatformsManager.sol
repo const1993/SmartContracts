@@ -130,7 +130,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
             _emitError(ERROR_PLATFORMS_CANNOT_UPDATE_EVENTS_HISTORY_NOT_EVENTS_ADMIN);
         }
 
-        _emitPlatformAttached(_platform);
+        _emitPlatformAttached(_platform, msg.sender);
 
         return OK;
     }
@@ -161,7 +161,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
         store.remove(ownerToPlatforms, bytes32(_owner), _platform);
         store.remove(platforms, _platform);
 
-        _emitPlatformDetached(_platform);
+        _emitPlatformDetached(_platform, msg.sender);
         return OK;
     }
 
@@ -202,7 +202,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
         }
 
         OwnedInterface(_platform).transferContractOwnership(msg.sender);
-        _emitPlatformRequested(_platform, _tokenExtension);
+        _emitPlatformRequested(_platform, _tokenExtension, msg.sender);
         return OK;
     }
 
@@ -308,16 +308,16 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
         return _errorCode;
     }
 
-    function _emitPlatformAttached(address _platform) private {
-        PlatformsManagerEmitter(getEventsHistory()).emitPlatformAttached(_platform);
+    function _emitPlatformAttached(address _platform, address _by) private {
+        PlatformsManagerEmitter(getEventsHistory()).emitPlatformAttached(_platform, _by);
     }
 
-    function _emitPlatformDetached(address _platform) private {
-        PlatformsManagerEmitter(getEventsHistory()).emitPlatformDetached(_platform);
+    function _emitPlatformDetached(address _platform, address _by) private {
+        PlatformsManagerEmitter(getEventsHistory()).emitPlatformDetached(_platform, _by);
     }
 
-    function _emitPlatformRequested(address _platform, address _tokenExtension) private {
-        PlatformsManagerEmitter(getEventsHistory()).emitPlatformRequested(_platform, _tokenExtension);
+    function _emitPlatformRequested(address _platform, address _tokenExtension, address sender) private {
+        PlatformsManagerEmitter(getEventsHistory()).emitPlatformRequested(_platform, _tokenExtension, sender);
     }
 
     function _emitPlatformReplaced(address _fromPlatform, address _toPlatform) private {

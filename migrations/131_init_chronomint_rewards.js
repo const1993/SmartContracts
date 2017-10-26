@@ -5,7 +5,7 @@ const ContractsManager = artifacts.require("./ContractsManager.sol");
 const MultiEventsHistory = artifacts.require("./MultiEventsHistory.sol");
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
-const platfromSearcher = require('../test/helpers/searchChronoBankPlatforms')
+const platfromSearcher = require('../test/helpers/searchChronobankPlatforms')
 
 module.exports = function (deployer, network, accounts) {
     const systemOwner = accounts[0]

@@ -47,7 +47,7 @@ contract("FeatureFeeManager", function(accounts) {
         .then(() => WalletsManager.deployed())
         .then((_walletsManager) => walletsManager = _walletsManager)
         .then(() => {
-            let sig = walletsManager.contract.createWallet.getData([0],0,0,0).slice(0, 10);
+            let sig = walletsManager.contract.createWallet.getData([0],0,0).slice(0, 10);
             return featureFeeManager.setFeatureFee(WalletsManager.address, sig, CreateWalletFeatureRequiredBalance, CreateWalletFeatureFee);
         })
 
@@ -74,9 +74,9 @@ contract("FeatureFeeManager", function(accounts) {
         })
         .then(() => TIME.balanceOf(feeHolderWallet))
         .then(_feeWalletBalance => feeWalletBalance = _feeWalletBalance)
-        .then(() => walletsManager.createWallet.call([timeHolder1, timeHolder2], 1, "Test Wallet 1", 0,  {from :timeHolder1}))
+        .then(() => walletsManager.createWallet.call([timeHolder1, timeHolder2], 1, 0,  {from :timeHolder1}))
         .then(r => assert.equal(r, ErrorsEnum.OK))
-        .then(() => walletsManager.createWallet([timeHolder1, timeHolder2], 1, "Test Wallet 1", 0,  {from :timeHolder1}))
+        .then(() => walletsManager.createWallet([timeHolder1, timeHolder2], 1, 0,  {from :timeHolder1}))
         .then(tx => eventsHelper.extractEvents(tx, "WalletCreated"))
         .then(events => assert.equal(events.length, 1))
         .then(() => timeHolder.depositBalance.call(timeHolder1))
@@ -94,9 +94,9 @@ contract("FeatureFeeManager", function(accounts) {
             holderBalance = _balance;
             assert.isTrue(holderBalance <= CreateWalletFeatureRequiredBalance)
         })
-        .then(() => walletsManager.createWallet.call([timeHolder1, timeHolder2], 1, "Test Wallet 1", 0,  {from :timeHolder4}))
+        .then(() => walletsManager.createWallet.call([timeHolder1, timeHolder2], 1, 0,  {from :timeHolder4}))
         .then(r => assert.equal(r, ErrorsEnum.FEATURE_IS_UNAVAILABE))
-        .then(() => walletsManager.createWallet([timeHolder1, timeHolder2], 1, "Test Wallet 1", 0,  {from :timeHolder4}))
+        .then(() => walletsManager.createWallet([timeHolder1, timeHolder2], 1, 0,  {from :timeHolder4}))
         .then(tx => eventsHelper.extractEvents(tx, "WalletCreated"))
         .then(events => assert.equal(events.length, 0))
         .then(() => timeHolder.depositBalance.call(timeHolder4))
@@ -112,7 +112,7 @@ contract("FeatureFeeManager", function(accounts) {
         let walletAddress;
 
         return Promise.resolve()
-        .then(() => walletsManager.createWallet([timeHolder1, timeHolder2], 1, "Test Wallet 1", 0,  {from :timeHolder1}))
+        .then(() => walletsManager.createWallet([timeHolder1, timeHolder2], 1, 0,  {from :timeHolder1}))
         .then(tx => eventsHelper.extractEvents(tx, "WalletCreated"))
         .then(events => walletAddress = events[0].args.wallet)
 

@@ -43,7 +43,7 @@ contract('Wallets Manager', function(accounts) {
         it("Token and balances initialization should pass.", function () {
             return FakeCoin.deployed().then(function (instance) {
                 coin = instance
-                return Wallet.new([owner,owner1], 2, Setup.contractsManager.address, Setup.multiEventsHistory.address, "Wallet1", false, 0).then(function (instance) {
+                return Wallet.new([owner,owner1], 2, Setup.contractsManager.address, Setup.multiEventsHistory.address, false, 0).then(function (instance) {
                     wallet = instance
                     return Setup.multiEventsHistory.authorize(wallet.address).then(function () {
                         return Setup.erc20Manager.addToken(coin.address, SYMBOL, SYMBOL, '0x1', 2, '0x1', '0x1', {
@@ -71,8 +71,8 @@ contract('Wallets Manager', function(accounts) {
     context("CRUD test", function(){
 
         it("can create new MultiSig Wallet contract", function() {
-            return Setup.walletsManager.createWallet.call([owner,owner1],2, "Wallet", 0).then(function(r1) {
-                return Setup.walletsManager.createWallet([owner,owner1],2, "Wallet", 0, {
+            return Setup.walletsManager.createWallet.call([owner,owner1],2, 0).then(function(r1) {
+                return Setup.walletsManager.createWallet([owner,owner1],2, 0, {
                     from: owner,
                     gas: 3000000
                 }).then((tx) => {
@@ -85,8 +85,6 @@ contract('Wallets Manager', function(accounts) {
                                 assert.equal(r1, ErrorsEnum.OK)
                                 assert.equal(r2, 2)
                                 assert.equal(r3, 2)
-                                return instance.name.call()
-                                    .then(name => assert.equal(name, bytes32("Wallet")))
                             })
                         })
                     })
@@ -327,8 +325,8 @@ contract('Wallets Manager', function(accounts) {
         })
 
         it("can create new 2FA Wallet contract", function() {
-            return Setup.walletsManager.create2FAWallet.call("Wallet",0).then(function(r1) {
-                return Setup.walletsManager.create2FAWallet("Wallet", 0, {
+            return Setup.walletsManager.create2FAWallet.call(0).then(function(r1) {
+                return Setup.walletsManager.create2FAWallet(0, {
                     from: owner,
                     gas: 3000000
                 }).then((tx) => {
@@ -342,8 +340,6 @@ contract('Wallets Manager', function(accounts) {
                                 assert.equal(r1, ErrorsEnum.OK)
                                 assert.equal(r2, 2)
                                 assert.equal(r3, 2)
-                                return instance.name.call()
-                                    .then(name => assert.equal(name, bytes32("Wallet")))
                             })
                         })
                     })
@@ -354,7 +350,6 @@ contract('Wallets Manager', function(accounts) {
         it("can't add owner to 2FA Wallet", function() {
             return Wallet.at(wallet2FA).then(function(instance) {
                 return instance.addOwner.call(owner1).then(function (r) {
-                    console.log(r)
                     assert.equal(r, 14010)
                 })
             })
@@ -391,8 +386,8 @@ contract('Wallets Manager', function(accounts) {
                 .then(() => {
                     var currentDate = secondsToDate(currentTime)
                     currentDate.setMonth(currentDate.getMonth() + 5)
-                    return Setup.walletsManager.createWallet.call([owner],1, "Wallet", currentDate.valueOf() / 1000 ).then(function(r1) {
-                        return Setup.walletsManager.createWallet([owner],1, "Wallet", currentDate.valueOf() / 1000, {
+                    return Setup.walletsManager.createWallet.call([owner],1, currentDate.valueOf() / 1000 ).then(function(r1) {
+                        return Setup.walletsManager.createWallet([owner],1, currentDate.valueOf() / 1000, {
                             from: owner,
                             gas: 3000000
                         }).then((tx) => {

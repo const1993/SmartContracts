@@ -7,7 +7,6 @@ const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 const bytes32fromBase58 = require('../test/helpers/bytes32fromBase58')
 const eventsHelper = require('../test/helpers/eventsHelper')
-const platfromSearcher = require('../test/helpers/searchChronobankPlatform')
 
 module.exports = function(deployer, network, accounts) {
     //----------
@@ -34,7 +33,7 @@ module.exports = function(deployer, network, accounts) {
     .then(() => AssetsManager.deployed())
     .then(_manager => assetsManager = _manager)
 
-    .then(() => platformsManager.createPlatform("ChronoBank"))
+    .then(() => platformsManager.createPlatform())
     .then(_tx => {
         // return Promise.resolve()
         // .then(() => )
@@ -44,8 +43,8 @@ module.exports = function(deployer, network, accounts) {
             return event.args.platform
         } else {
             return Promise.resolve()
-            .then(() => platfromSearcher.findPlatformsByName(systemOwner, platfromSearcher.ChronoBankPlatformName, platformsManager))
-            .then(_platforms => _platforms[0])
+            .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, 0))
+            .then(_platforms => _platforms)
         }
     })
     .then(_platformAddr => platformAddr = _platformAddr)

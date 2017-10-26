@@ -66,7 +66,7 @@ contract('LOC Manager', function(accounts) {
             return Setup.platformsManager.getPlatformForUserAtIndex.call(owner, 0)
             .then(_platformMeta => {
                 return Promise.resolve()
-                .then(() => ChronoBankPlatform.at(_platformMeta[0]))
+                .then(() => ChronoBankPlatform.at(_platformMeta))
                 .then(_platform => _platform.proxies.call(SYMBOL2))
             })
             .then(_proxy => {

@@ -49,7 +49,7 @@ contract("PlatformTokenExtensionGatewayManager", function(accounts) {
         let tokenEmitter
 
         it("prepare", async () => {
-            let newPlatformTx = await Setup.platformsManager.createPlatform("default", { from: owner })
+            let newPlatformTx = await Setup.platformsManager.createPlatform({ from: owner })
             let event = eventsHelper.extractEvents(newPlatformTx, "PlatformRequested")[0]
             assert.isDefined(event)
             assert.notEqual(event.args.tokenExtension, zeroAddress)

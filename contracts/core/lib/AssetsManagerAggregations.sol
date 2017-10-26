@@ -123,7 +123,7 @@ library AssetsManagerAggregations {
         uint _managersPointer = 0;
         address[] memory _platformManagers;
         for (uint _platformIdx = 0; _platformIdx < _platformsCount; ++_platformIdx) {
-            var (_platform,) = _platformsManagerInterface.getPlatformForUserAtIndex(_owner, _platformIdx);
+            address _platform = _platformsManagerInterface.getPlatformForUserAtIndex(_owner, _platformIdx);
             _platformManagers = getManagersForPlatform(store, _symbolWithPlatformToUsers, _platform);
             _managersPointer = _copyArrayIntoArray(_platformManagers, _managers, _managersPointer);
         }
@@ -171,7 +171,7 @@ library AssetsManagerAggregations {
         uint _platformsCount = _platformsManagerInterface.getPlatformsForUserCount(_owner);
 
         for (uint _platformIdx = 0; _platformIdx < _platformsCount; ++_platformIdx) {
-            var (_platform,) = _platformsManagerInterface.getPlatformForUserAtIndex(_owner, _platformIdx);
+            address _platform = _platformsManagerInterface.getPlatformForUserAtIndex(_owner, _platformIdx);
             _count += ChronoBankManagersRegistry(_platform).holdersCount() * ChronoBankPlatformInterface(_platform).symbolsCount();
         }
     }

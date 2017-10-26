@@ -24,14 +24,13 @@ contract OwnedContract {
 /**
 * @dev TODO
 */
-contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmitter {
+contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmitter, PlatformsManagerInterface {
 
     /** Error codes */
 
     uint constant ERROR_PLATFORMS_ATTACHING_PLATFORM_ALREADY_EXISTS = 21001;
     uint constant ERROR_PLATFORMS_PLATFORM_DOES_NOT_EXIST = 21002;
     uint constant ERROR_PLATFORMS_INCONSISTENT_INTERNAL_STATE = 21003;
-    uint constant ERROR_PLATFORMS_UPDATE_PLATFORM_METADATA_THE_SAME_NAME = 21004;
     uint constant ERROR_PLATFORMS_REPEAT_SYNC_IS_NOT_COMPLETED = 21005;
     uint constant ERROR_PLATFORMS_CANNOT_UPDATE_EVENTS_HISTORY_NOT_EVENTS_ADMIN = 21006;
 
@@ -48,9 +47,6 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
     /** TODO */
     StorageInterface.OrderedAddressesSet platforms;
-
-    /** TODO */
-    StorageInterface.AddressBytes32Mapping platformToName;
 
     /** TODO */
     StorageInterface.AddressUIntMapping syncPlatformToSymbolIdx;
@@ -77,7 +73,6 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
         platformsFactory.init("platformsFactory");
         ownerToPlatforms.init("v1ownerToPlatforms");
         platforms.init("v1platforms");
-        platformToName.init("v1platformToName");
         syncPlatformToSymbolIdx.init("v1syncPlatformToSymbolIdx");
     }
 
@@ -92,16 +87,8 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     /**
     * @dev TODO
     */
-    function getPlatformName(address _platform) public constant returns (bytes32 _name) {
-        _name = store.get(platformToName, _platform);
-    }
-
-    /**
-    * @dev TODO
-    */
-    function getPlatformForUserAtIndex(address _user, uint _idx) public constant returns (address _platform, bytes32 _name) {
+    function getPlatformForUserAtIndex(address _user, uint _idx) public constant returns (address _platform) {
         _platform = store.get(ownerToPlatforms, bytes32(_user), _idx);
-        _name = store.get(platformToName, _platform);
     }
 
     /**
@@ -114,24 +101,8 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     /**
     * @dev TODO
     */
-    function getPlatformsMetadataForUser(address _user) public constant returns (address[] _platforms, bytes32[] _names) {
+    function getPlatformsMetadataForUser(address _user) public constant returns (address[] _platforms) {
         _platforms = store.get(ownerToPlatforms, bytes32(_user));
-        _names = new bytes32[](_platforms.length);
-        for (uint _platformIdx = 0; _platformIdx < _platforms.length; ++_platformIdx) {
-            _names[_platformIdx] = store.get(platformToName, _platforms[_platformIdx]);
-        }
-    }
-
-    /**
-    * @dev TODO
-    */
-    function setPlatformMetadata(address _platform, bytes32 _name) onlyPlatformOwner(_platform) public returns (uint) {
-        if (store.get(platformToName, _platform) == _name) {
-            return _emitError(ERROR_PLATFORMS_UPDATE_PLATFORM_METADATA_THE_SAME_NAME);
-        }
-
-        store.set(platformToName, _platform, _name);
-        return OK;
     }
 
     /**
@@ -144,7 +115,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     /**
     * @dev TODO
     */
-    function attachPlatform(address _platform, bytes32 _name) onlyPlatformOwner(_platform) public returns (uint resultCode) {
+    function attachPlatform(address _platform) onlyPlatformOwner(_platform) public returns (uint resultCode) {
         if (store.includes(platforms, _platform)) {
             return _emitError(ERROR_PLATFORMS_ATTACHING_PLATFORM_ALREADY_EXISTS);
         }
@@ -154,7 +125,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
             return _emitError(resultCode);
         }
 
-        _attachPlatformWithoutValidation(_platform, _name, OwnedContract(_platform).contractOwner());
+        _attachPlatformWithoutValidation(_platform, OwnedContract(_platform).contractOwner());
         if (OK != ChronoBankPlatform(_platform).setupEventsHistory(getEventsHistory())) {
             _emitError(ERROR_PLATFORMS_CANNOT_UPDATE_EVENTS_HISTORY_NOT_EVENTS_ADMIN);
         }
@@ -189,7 +160,6 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
         store.remove(ownerToPlatforms, bytes32(_owner), _platform);
         store.remove(platforms, _platform);
-        store.set(platformToName, _platform, bytes32(0));
 
         _emitPlatformDetached(_platform);
         return OK;
@@ -210,14 +180,18 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     /**
     * @dev TODO
     */
-    function createPlatform(bytes32 _name) public returns (uint resultCode) {
-        return _createPlatform(_name, [uint(0)]);
+    function createPlatform() public returns (uint resultCode) {
+        return _createPlatform([uint(0)]);
     }
 
-    function _createPlatform(bytes32 _name, uint[1] memory _result) featured(_result) private returns (uint resultCode) {
+    function _createPlatform(uint[1] memory _result)
+    private
+    featured(_result)
+    returns (uint resultCode)
+    {
         PlatformsFactory factory = PlatformsFactory(store.get(platformsFactory));
         address _platform = factory.createPlatform(msg.sender, getEventsHistory(), this);
-        _attachPlatformWithoutValidation(_platform, _name, msg.sender);
+        _attachPlatformWithoutValidation(_platform, msg.sender);
 
         AssetsManagerInterface assetsManager = AssetsManagerInterface(lookupManager("AssetsManager"));
         resultCode = assetsManager.requestTokenExtension(_platform);
@@ -235,10 +209,9 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     /**
     * @dev TODO private
     */
-    function _attachPlatformWithoutValidation(address _platform, bytes32 _name, address _owner) private {
+    function _attachPlatformWithoutValidation(address _platform, address _owner) private {
         store.add(ownerToPlatforms, bytes32(_owner), _platform);
         store.add(platforms, _platform);
-        store.set(platformToName, _platform, _name);
     }
 
     /**

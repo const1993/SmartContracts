@@ -33,7 +33,7 @@ module.exports = function(deployer, network, accounts) {
                         let idx = _platformIdx;
                         next = next
                         .then(() => platformsManager.getPlatformForUserAtIndex.call(systemOwner, idx))
-                        .then(_platformMeta => platforms.push(_platformMeta[0]))
+                        .then(_platformAddr => platforms.push(_platformAddr))
                     })()
                 }
 

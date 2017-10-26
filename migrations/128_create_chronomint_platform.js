@@ -51,7 +51,17 @@ module.exports = function(deployer, network, accounts) {
     .then(() => assetsManager.getTokenExtension.call(platformAddr))
     .then(_tokenExtensionAddr => TokenManagementInterface.at(_tokenExtensionAddr))
     .then(_tokenExtension => tokenExtension = _tokenExtension)
-    .then(() => tokenExtension.createAssetWithFee(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE, bytes32fromBase58(lhtIconIpfsHash)))
+    .then(() => {
+        return Promise.resolve()
+        .then(() => tokenExtension.createAssetWithFee.call(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE, bytes32fromBase58(lhtIconIpfsHash)))
+        .then(_code => {
+            if (_code == 1) {
+                return tokenExtension.createAssetWithFee(LHT_SYMBOL, LHT_NAME, LHT_DESCRIPTION, 0, LHT_BASE_UNIT, IS_REISSUABLE, RewardsWallet.address, FEE_VALUE, bytes32fromBase58(lhtIconIpfsHash))
+            } else {
+                throw "Cannot create token LHT. Result code: " + _code.valueOf()
+            }
+        })
+    })
     .then(() => tokenExtension.getAssetOwnershipManager.call())
     .then(_assetOwnershipManagerAddr => ChronoBankAssetOwnershipManager.at(_assetOwnershipManagerAddr))
     .then(_assetOwnershipManager => {

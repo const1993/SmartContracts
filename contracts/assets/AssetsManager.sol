@@ -86,11 +86,11 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
     function AssetsManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) {
         tokenExtensionFactory.init("tokenExtensionFactory");
         tokenFactory.init("tokenFactory");
-        platformToExtension.init("platformToExtension");
-        tokenExtensions.init("tokenExtensions");
-        userToParticipatedPlatforms.init("userToParticipatedPlatforms");
-        userWithPlatformToOwnedSymbols.init("userWithPlatformToOwnedSymbols");
-        symbolWithPlatformToUsers.init("symbolWithPlatformToUsers");
+        platformToExtension.init("v1platformToExtension");
+        tokenExtensions.init("v1tokenExtensions");
+        userToParticipatedPlatforms.init("v1userToParticipatedPlatforms");
+        userWithPlatformToOwnedSymbols.init("v1userWithPlatformToOwnedSymbols");
+        symbolWithPlatformToUsers.init("v1symbolWithPlatformToUsers");
     }
 
     /**

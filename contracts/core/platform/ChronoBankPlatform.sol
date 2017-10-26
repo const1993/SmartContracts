@@ -96,7 +96,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
 
     // Should use interface of the emitter, but address of events history.
     address public eventsHistory;
-    address public eventsAdmit;
+    address public eventsAdmin;
 
     address owningListener;
 
@@ -125,7 +125,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      * Emits Error if called not by asset owner.
      */
     modifier onlyEventsAdmin() {
-        if (eventsAdmit == msg.sender || contractOwner == msg.sender) {
+        if (eventsAdmin == msg.sender || contractOwner == msg.sender) {
             _;
         }
     }
@@ -216,7 +216,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      * @return success.
      */
     function setupEventsAdmin(address _eventsAdmin) onlyContractOwner returns (uint errorCode) {
-        eventsAdmit = _eventsAdmin;
+        eventsAdmin = _eventsAdmin;
         return OK;
     }
 

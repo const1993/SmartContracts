@@ -33,6 +33,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     uint constant ERROR_PLATFORMS_INCONSISTENT_INTERNAL_STATE = 21003;
     uint constant ERROR_PLATFORMS_UPDATE_PLATFORM_METADATA_THE_SAME_NAME = 21004;
     uint constant ERROR_PLATFORMS_REPEAT_SYNC_IS_NOT_COMPLETED = 21005;
+    uint constant ERROR_PLATFORMS_CANNOT_UPDATE_EVENTS_HISTORY_NOT_EVENTS_ADMIN = 21006;
 
     uint constant PLATFORM_ATTACH_SYNC_DONE = 2**255;
     uint constant PLATFORM_DETACH_SYNC_DONE = 2**255-1;
@@ -74,10 +75,10 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
     function PlatformsManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) {
         platformsFactory.init("platformsFactory");
-        ownerToPlatforms.init("ownerToPlatforms");
-        platforms.init("platforms");
-        platformToName.init("platformToName");
-        syncPlatformToSymbolIdx.init("syncPlatformToSymbolIdx");
+        ownerToPlatforms.init("v1ownerToPlatforms");
+        platforms.init("v1platforms");
+        platformToName.init("v1platformToName");
+        syncPlatformToSymbolIdx.init("v1syncPlatformToSymbolIdx");
     }
 
     function init(address _contractsManager, address _platformsFactory) onlyContractOwner public returns (uint) {
@@ -154,7 +155,9 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
         }
 
         _attachPlatformWithoutValidation(_platform, _name, OwnedContract(_platform).contractOwner());
-        require(OK == ChronoBankPlatform(_platform).setupEventsHistory(getEventsHistory()));
+        if (OK != ChronoBankPlatform(_platform).setupEventsHistory(getEventsHistory())) {
+            _emitError(ERROR_PLATFORMS_CANNOT_UPDATE_EVENTS_HISTORY_NOT_EVENTS_ADMIN);
+        }
 
         _emitPlatformAttached(_platform);
 
@@ -180,7 +183,9 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
             return _emitError(resultCode);
         }
 
-        assert(OK == ChronoBankPlatform(_platform).setupEventsHistory(_platform));
+        if (OK != ChronoBankPlatform(_platform).setupEventsHistory(_platform)) {
+            _emitError(ERROR_PLATFORMS_CANNOT_UPDATE_EVENTS_HISTORY_NOT_EVENTS_ADMIN);
+        }
 
         store.remove(ownerToPlatforms, bytes32(_owner), _platform);
         store.remove(platforms, _platform);

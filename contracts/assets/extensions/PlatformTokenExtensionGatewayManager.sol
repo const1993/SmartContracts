@@ -407,7 +407,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         ChronoBankAssetProxyInterface(token).init(platform, StringsLib.bytes32ToString(_symbol), _name);
         ChronoBankAssetProxyInterface(token).proposeUpgrade(_asset);
         ChronoBankAsset(_asset).init(ChronoBankAssetProxyInterface(token));
-        _assetOwnershipManager.addAssetPartOwner(_symbol, this);
+        if (OK != _assetOwnershipManager.addAssetPartOwner(_symbol, this)) revert();
         _assetOwnershipManager.changeOwnership(_symbol, msg.sender);
 
         if(OK != _addToken(token, _symbol, _decimals, _ipfsHash)) revert();

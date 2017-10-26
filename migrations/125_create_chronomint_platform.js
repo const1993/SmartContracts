@@ -7,7 +7,7 @@ const RewardsWallet = artifacts.require('./RewardsWallet.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 const bytes32fromBase58 = require('../test/helpers/bytes32fromBase58')
 const eventsHelper = require('../test/helpers/eventsHelper')
-const platfromSearcher = require('../test/helpers/searchChronobankPlatforms')
+const platfromSearcher = require('../test/helpers/searchChronobankPlatform')
 
 module.exports = function(deployer, network, accounts) {
     //----------

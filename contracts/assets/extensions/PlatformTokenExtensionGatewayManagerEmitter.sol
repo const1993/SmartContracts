@@ -11,28 +11,28 @@ contract PlatformTokenExtensionGatewayManagerEmitter is MultiEventsHistoryAdapte
     event Error(address indexed self, uint errorCode);
 
     /** TODO */
-    event AssetCreated(address indexed self, address platform, bytes32 symbol, address token);
+    event AssetCreated(address indexed self, address platform, bytes32 symbol, address token, address indexed by);
 
     /** TODO */
-    event CrowdsaleCampaignCreated(address indexed self, address platform, bytes32 symbol, address campaign);
+    event CrowdsaleCampaignCreated(address indexed self, address platform, bytes32 symbol, address campaign, address indexed by);
 
     /** TODO */
-    event CrowdsaleCampaignRemoved(address indexed self, address platform, bytes32 symbol, address campaign);
+    event CrowdsaleCampaignRemoved(address indexed self, address platform, bytes32 symbol, address campaign, address indexed by);
 
 
     function emitError(uint _errorCode) {
         Error(_self(), _errorCode);
     }
 
-    function emitAssetCreated(address _platform, bytes32 _symbol, address _token) {
-        AssetCreated(_self(), _platform, _symbol, _token);
+    function emitAssetCreated(address _platform, bytes32 _symbol, address _token, address _by) {
+        AssetCreated(_self(), _platform, _symbol, _token, _by);
     }
 
-    function emitCrowdsaleCampaignCreated(address _platform, bytes32 _symbol, address _campaign) {
-        CrowdsaleCampaignCreated(_self(), _platform, _symbol, _campaign);
+    function emitCrowdsaleCampaignCreated(address _platform, bytes32 _symbol, address _campaign, address _by) {
+        CrowdsaleCampaignCreated(_self(), _platform, _symbol, _campaign, _by);
     }
 
-    function emitCrowdsaleCampaignRemoved(address _platform, bytes32 _symbol, address _campaign) {
-        CrowdsaleCampaignRemoved(_self(), _platform, _symbol, _campaign);
+    function emitCrowdsaleCampaignRemoved(address _platform, bytes32 _symbol, address _campaign, address _by) {
+        CrowdsaleCampaignRemoved(_self(), _platform, _symbol, _campaign, _by);
     }
 }

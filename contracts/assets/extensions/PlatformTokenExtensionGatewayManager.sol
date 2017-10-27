@@ -241,7 +241,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         address _asset = _createAsset(getTokenFactory());
         address _token = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
 
-        _emitAssetCreated(platform, _symbol, _token);
+        _emitAssetCreated(platform, _symbol, _token, msg.sender);
 
         _result[0] = OK;
         return OK;
@@ -286,7 +286,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         }
 
         address _token = _bindAssetWithToken(getTokenFactory(), _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent), _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
-        _emitAssetCreated(platform, _symbol, _token);
+        _emitAssetCreated(platform, _symbol, _token, msg.sender);
 
         _result[0] = OK;
         return OK;
@@ -332,7 +332,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
 
         if( OK != _assetOwnershipManager.addAssetPartOwner(_symbol, _crowdsale)) revert();
 
-        _emitCrowdsaleCampaignCreated(platform, _symbol, _crowdsale);
+        _emitCrowdsaleCampaignCreated(platform, _symbol, _crowdsale, msg.sender);
 
         _result[0] = OK;
         return OK;
@@ -358,7 +358,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
 
         if(OK != _assetOwnershipManager.removeAssetPartOwner(_symbol, _crowdsale)) revert();
 
-        _emitCrowdsaleCampaignRemoved(platform, _symbol, _crowdsale);
+        _emitCrowdsaleCampaignRemoved(platform, _symbol, _crowdsale, msg.sender);
         return OK;
     }
 
@@ -462,16 +462,16 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         return _errorCode;
     }
 
-    function _emitAssetCreated(address _platform, bytes32 _symbol, address _token) private {
-        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitAssetCreated(_platform, _symbol, _token);
+    function _emitAssetCreated(address _platform, bytes32 _symbol, address _token, address _by) private {
+        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitAssetCreated(_platform, _symbol, _token, _by);
     }
 
-    function _emitCrowdsaleCampaignCreated(address _platform, bytes32 _symbol, address _campaign) private {
-        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitCrowdsaleCampaignCreated(_platform, _symbol, _campaign);
+    function _emitCrowdsaleCampaignCreated(address _platform, bytes32 _symbol, address _campaign, address _by) private {
+        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitCrowdsaleCampaignCreated(_platform, _symbol, _campaign, _by);
     }
 
-    function _emitCrowdsaleCampaignRemoved(address _platform, bytes32 _symbol, address _campaign) private {
-        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitCrowdsaleCampaignRemoved(_platform, _symbol, _campaign);
+    function _emitCrowdsaleCampaignRemoved(address _platform, bytes32 _symbol, address _campaign, address _by) private {
+        PlatformTokenExtensionGatewayManagerEmitter(getEventsHistory()).emitCrowdsaleCampaignRemoved(_platform, _symbol, _campaign, _by);
     }
 
     function () public {

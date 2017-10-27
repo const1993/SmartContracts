@@ -6,5 +6,3 @@ return PollManager.at('0xdce001e72db01519cba8a5b538eceb10a5c0d685')
       .then((result) => {artifactor.save(PollManager,result)})
       .then(() => callback())
 }
-
-

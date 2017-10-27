@@ -259,8 +259,17 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
     /**
     * @dev TODO
     */
-    function getParticipatingPlatformsForUser(address _user) public constant returns (address[]) {
-        return store.get(userToParticipatedPlatforms, bytes32(_user));
+    function getParticipatingPlatformsForUser(address _user) public constant returns (address[] _platforms) {
+        PlatformsManagerInterface _platformsManager = PlatformsManagerInterface(lookupManager("PlatformsManager"));
+        uint _partricipatedPlatformsCount = store.count(userToParticipatedPlatforms, bytes32(_user));
+        _platforms = new address[](_platformsManager.getPlatformsForUserCount(_user) + _partricipatedPlatformsCount);
+        uint _platformIdx;
+        for (_platformIdx = 0; _platformIdx < _partricipatedPlatformsCount; ++_platformIdx) {
+            _platforms[_platformIdx] = store.get(userToParticipatedPlatforms, bytes32(_user), _platformIdx);
+        }
+        for (uint _userPlatformIdx = 0; _platformIdx < _platforms.length; ++_platformIdx) {
+            _platforms[_platformIdx] = _platformsManager.getPlatformForUserAtIndex(_user, _userPlatformIdx++);
+        }
     }
 
     /**

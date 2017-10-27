@@ -390,16 +390,18 @@ contract Wallet is multiowned {
         return result;
     }
 
-    function getPendings() constant returns (address[] result1, uint[] result2, bytes32[] result3) {
+    function getPendings() constant returns (address[] result1, uint[] result2, bytes32[] result3, bytes32[] operations) {
         result1 = new address[](m_pendingIndex.length);
         result2 = new uint[](m_pendingIndex.length);
         result3 = new bytes32[](m_pendingIndex.length);
+        operations = new bytes32[](m_pendingIndex.length);
         for(uint i=0;i<m_pendingIndex.length;i++) {
             result1[i] = m_txs[m_pendingIndex[i]].to;
             result2[i] = m_txs[m_pendingIndex[i]].value;
             result3[i] = m_txs[m_pendingIndex[i]].symbol;
+            operations[i] = m_pendingIndex[i];
         }
-        return (result1,result2,result3);
+        return (result1,result2,result3,operations);
     }
 
     // kills the contract sending everything to `_to`.

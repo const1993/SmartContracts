@@ -202,22 +202,19 @@ contract('Wallets Manager', function(accounts) {
         })
 
         it("should multisig change owner", function() {
-            return wallet.isOwner.call(owner1).then(function(r) {
-                assert.isTrue(r)
-                return wallet.isOwner.call(owner2).then(function (r) {
-                    assert.isFalse(r)
-                    return wallet.changeOwner(owner1, owner2).then(function () {
-                        return wallet.changeOwner(owner1, owner2, {from:owner1}).then(function () {
-                            return wallet.isOwner.call(owner1).then(function (r) {
-                                assert.isFalse(r)
-                                return wallet.isOwner.call(owner2).then(function (r) {
-                                    assert.isTrue(r)
-                                })
-                            })
-                        })
-                    })
-                })
-            })
+            return wallet.isOwner.call(owner1)
+                .then(r => assert.isTrue(r))
+                .then(() => wallet.isOwner.call(owner2))
+                .then(r => assert.isFalse(r))
+                .then(() => wallet.changeOwner(owner1, owner2))
+                // .then(tx => console.log(tx.logs))
+                // .then(() => wallet.getPendings.call())
+                // .then(pendings => console.log(pendings))
+                .then(() => wallet.changeOwner(owner1, owner2, {from:owner1}))
+                .then(() => wallet.isOwner.call(owner1))
+                .then(r => assert.isFalse(r))
+                .then(() => wallet.isOwner.call(owner2))
+                .then(r => assert.isTrue(r))
         })
 
         it("should multisig add owner", function() {

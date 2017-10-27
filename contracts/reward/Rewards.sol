@@ -309,11 +309,11 @@ contract Rewards is Deposits, RewardsEmitter {
      * @return result code.
      */
     function withdrawAllRewardsTotal() returns (uint) {
-        address[] memory assets = getAssets();
-        for (uint i=0; i < assets.length; i++) {
-            uint rewards = rewardsFor(assets[i], msg.sender);
-            if (rewards > 0) {
-                uint result = withdrawRewardFor(assets[i], msg.sender, rewards);
+        address[] memory _assets = getAssets();
+        for (uint i=0; i < _assets.length; i++) {
+            uint _rewards = rewardsFor(_assets[i], msg.sender);
+            if (_rewards > 0) {
+                uint result = withdrawRewardFor(_assets[i], msg.sender, _rewards);
                 if (OK != result) {
                     return result;
                 }

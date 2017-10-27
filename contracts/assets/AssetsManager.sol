@@ -34,8 +34,6 @@ contract EventsHistory {
 */
 contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetOwningListener, BaseManager, AssetsManagerEmitter {
 
-    using AssetsManagerAggregations for StorageInterface.Config;
-
     /** Error codes */
 
     uint constant ERROR_ASSETS_MANAGER_SYMBOL_ALREADY_EXISTS = 30001;
@@ -239,7 +237,7 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
     * @dev TODO
     */
     function isAssetOwner(bytes32 _symbol, address _user) public constant returns (bool) {
-        return store.isAssetOwner(platformToExtension, _symbol, getAssetBySymbol(_symbol), _user);
+        return AssetsManagerAggregations.isAssetOwner(store, platformToExtension, _symbol, getAssetBySymbol(_symbol), _user);
     }
 
     /**
@@ -290,7 +288,7 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
     * @dev TODO
     */
     function getSystemAssetsForOwnerCount(address _owner) public constant returns (uint) {
-        return store.getSystemAssetsForOwnerCount(userToParticipatedPlatforms, userWithPlatformToOwnedSymbols, _owner);
+        return AssetsManagerAggregations.getSystemAssetsForOwnerCount(store, userToParticipatedPlatforms, userWithPlatformToOwnedSymbols, _owner);
     }
 
     /**
@@ -338,7 +336,7 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
     * @dev TODO
     */
     function getManagers(address _owner) public constant returns (address[]) {
-        return store.getManagers(symbolWithPlatformToUsers, lookupManager("PlatformsManager"), _owner);
+        return AssetsManagerAggregations.getManagers(store, symbolWithPlatformToUsers, lookupManager("PlatformsManager"), _owner);
     }
 
     /** Helper functions */

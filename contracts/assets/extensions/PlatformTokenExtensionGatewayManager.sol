@@ -239,7 +239,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         }
 
         address _asset = _createAsset(getTokenFactory());
-        address _token = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
+        address _token = _bindAssetWithToken(getTokenFactory(), _asset, _symbol, _name, _decimals, _tokenImageIpfsHash);
 
         _emitAssetCreated(platform, _symbol, _token, msg.sender);
 
@@ -260,7 +260,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     onlyPlatformOwner
     public
     returns (uint resultCode) {
-        return _createAssetWithFee(_symbol, _name, _description, _value, _decimals,_isMint, _feeAddress, _feePercent, _tokenImageIpfsHash, [uint(0)]);
+        return _createAssetWithFee(_symbol, _name, _description, _value, _decimals, _isMint, _feeAddress, _feePercent, _tokenImageIpfsHash, [uint(0)]);
     }
 
     function _createAssetWithFee(
@@ -275,7 +275,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         bytes32 _tokenImageIpfsHash,
         uint[1] memory _result)
     featured(_result)
-    public
+    private
     returns (uint resultCode)
     {
         require(_feeAddress != 0x0);
@@ -285,7 +285,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
             return _emitError(resultCode);
         }
 
-        address _token = _bindAssetWithToken(getTokenFactory(), _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent), _symbol, _name, _value, _decimals, _tokenImageIpfsHash);
+        address _token = _bindAssetWithToken(getTokenFactory(), _deployAssetWithFee(getTokenFactory(), _feeAddress, _feePercent), _symbol, _name, _decimals, _tokenImageIpfsHash);
         _emitAssetCreated(platform, _symbol, _token, msg.sender);
 
         _result[0] = OK;
@@ -398,7 +398,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     /**
     * @dev TODO
     */
-    function _bindAssetWithToken(TokenFactory _factory, address _asset, bytes32 _symbol, string _name, uint _value, uint8 _decimals, bytes32 _ipfsHash) private returns (address token) {
+    function _bindAssetWithToken(TokenFactory _factory, address _asset, bytes32 _symbol, string _name, uint8 _decimals, bytes32 _ipfsHash) private returns (address token) {
         token = _factory.createProxy();
 
         if (OK != ChronoBankPlatformInterface(platform).setProxy(token, _symbol)) revert();

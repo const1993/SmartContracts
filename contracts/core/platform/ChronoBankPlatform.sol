@@ -413,17 +413,17 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
      *
      * Can be set only once for each asset, and only by contract owner.
      *
-     * @param _address Proxy contract address.
+     * @param _proxyAddress Proxy contract address.
      * @param _symbol asset symbol.
      *
      * @return success.
      */
-    function setProxy(address _address, bytes32 _symbol) onlyOneOfContractOwners returns(uint) {
+    function setProxy(address _proxyAddress, bytes32 _symbol) onlyOneOfContractOwners returns(uint) {
         if (proxies[_symbol] != 0x0) {
             return CHRONOBANK_PLATFORM_PROXY_ALREADY_EXISTS;
         }
 
-        proxies[_symbol] = _address;
+        proxies[_symbol] = _proxyAddress;
         return OK;
     }
 
@@ -621,7 +621,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
         if (_value == 0) {
             return _error(CHRONOBANK_PLATFORM_INVALID_VALUE);
         }
-        Asset asset = assets[_symbol];
+        Asset storage asset = assets[_symbol];
         // Should have dynamic supply.
         if (!asset.isReissuable) {
             return _error(CHRONOBANK_PLATFORM_CANNOT_REISSUE_FIXED_ASSET);
@@ -654,7 +654,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
         if (_value == 0) {
             return _error(CHRONOBANK_PLATFORM_INVALID_VALUE);
         }
-        Asset asset = assets[_symbol];
+        Asset storage asset = assets[_symbol];
         uint holderId = getHolderId(msg.sender);
         // Should have enough tokens.
         if (asset.wallets[holderId].balance < _value) {
@@ -686,7 +686,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
             return _error(CHRONOBANK_PLATFORM_INVALID_NEW_OWNER);
         }
 
-        Asset asset = assets[_symbol];
+        Asset storage asset = assets[_symbol];
         uint newOwnerId = _createHolderId(_newOwner);
         // Should pass ownership to another holder.
         if (asset.owner == newOwnerId) {

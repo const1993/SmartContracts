@@ -23,7 +23,7 @@ contract ChronoBankPlatformFactory is Owned {
         ownershipResolver = _ownershipResolver;
     }
 
-    function createPlatform(address owner, MultiEventsHistory eventsHistory, address eventsHistoryAdmin) public returns(address) {
+    function createPlatform(address, MultiEventsHistory eventsHistory, address eventsHistoryAdmin) public returns(address) {
         ChronoBankPlatform platform = new ChronoBankPlatform();
         eventsHistory.authorize(platform);
         platform.setupEventsAdmin(eventsHistoryAdmin);

@@ -2,16 +2,23 @@ const Setup = require('../setup/setup')
 const ErrorsEnum = require("../common/errors")
 var eventsHelper = require('./helpers/eventsHelper');
 const bytes32 = require('./helpers/bytes32');
+const Reverter = require('./helpers/reverter')
 
 const AssetsManager = artifacts.require('./AssetsManager.sol')
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
-const TokenManagementInterface = artifacts.require('./TokenManagementInterface.sol')
+const TokenCrowdsaleManagementInterface = artifacts.require('./TokenCrowdsaleManagementInterface.sol')
 const TimeLimitedCrowdsale = artifacts.require('./TimeLimitedCrowdsale.sol')
 const CrowdsaleManager = artifacts.require('./CrowdsaleManager.sol')
 const TimeLimitedCrowdsaleFactory = artifacts.require('./TimeLimitedCrowdsaleFactory.sol')
 const FakePriceTicker = artifacts.require('./FakePriceTicker.sol')
 const PlatformTokenExtensionGatewayManagerEmitter = artifacts.require('./PlatformTokenExtensionGatewayManagerEmitter.sol')
+
+Array.prototype.unique = function() {
+  return this.filter(function (value, index, self) {
+    return self.indexOf(value) === index;
+  });
+}
 
 contract('CrowdsaleManager', function(accounts) {
     const TOKEN_1 = 'AWSM';   //reissuable
@@ -23,6 +30,11 @@ contract('CrowdsaleManager', function(accounts) {
     const fund = accounts[9];
 
     const crowdsaleFactoryName = "TimeLimitedCrowdsaleFactory";
+
+    const reverter = new Reverter(web3)
+
+    let utils = web3._extend.utils
+    const zeroAddress = '0x' + utils.padLeft(utils.toHex("0").substr(2), 40)
 
     let platform
     let tokenExtension
@@ -39,7 +51,7 @@ contract('CrowdsaleManager', function(accounts) {
             return Promise.resolve()
             .then(() => ChronoBankPlatform.at(platformRequestedEvent.args.platform))
             .then(_platform => platform = _platform)
-            .then(() => TokenManagementInterface.at(platformRequestedEvent.args.tokenExtension))
+            .then(() => TokenCrowdsaleManagementInterface.at(platformRequestedEvent.args.tokenExtension))
             .then(_tokenExtension => tokenExtension = _tokenExtension)
             .then(() => PlatformTokenExtensionGatewayManagerEmitter.at(platformRequestedEvent.args.tokenExtension))
             .then(_emitter => tokenExtensionEmitter = _emitter)
@@ -48,12 +60,12 @@ contract('CrowdsaleManager', function(accounts) {
         .then(() => tokenExtension.createAssetWithoutFee(TOKEN_2, "Awesome Token 2",'Token 2', 100, 0, false, 0x0, { from: tokenOwner }))
         .then(() => TimeLimitedCrowdsaleFactory.deployed())
         .then(crowdsaleFactory => crowdsaleFactory.setPriceTicker(FakePriceTicker.address))
-        .then(() => Setup.setup(done))
+        .then(() => {
+            Setup.setup(() => {
+               reverter.snapshot(done)
+            })
+        })
     });
-
-    after('clean up', function(done) {
-        done()
-    })
 
     context("Security checks", function () {
         it("CrowdsaleManager has correct ContractsManager address.", async () => {
@@ -129,6 +141,8 @@ contract('CrowdsaleManager', function(accounts) {
             let isAssetOwner = await Setup.assetsManager.isAssetOwner.call(TOKEN_1, deletedCampaign)
             assert.isFalse(isAssetOwner)
         })
+
+        it("revert", reverter.revert)
     })
 
     context("Ether crowdsale", function() {
@@ -265,5 +279,93 @@ contract('CrowdsaleManager', function(accounts) {
                 }))
             })
         }
+
+        it("revert", reverter.revert)
+    })
+
+    context("aggregation methods: tokens on crowdsale", function () {
+        const TOKEN_SYMBOL_1 = "TS1"
+        const TOKEN_SYMBOL_2 = "TS2"
+
+        let otherTokenOwner = accounts[7]
+
+        // it("snapshot", reverter.snapshot)
+
+        it("should show 1 token on crowdsale for tokenOwner", async () => {
+            let createdTokenTx = await tokenExtension.createAssetWithoutFee(TOKEN_SYMBOL_1, TOKEN_SYMBOL_1, "description of token", 1000, 1, true, 0x0, { from: tokenOwner })
+            let tokenEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], createdTokenTx, "AssetCreated"))[0]
+            assert.isDefined(tokenEvent)
+
+            let startCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_SYMBOL_1, crowdsaleFactoryName, { from: tokenOwner })
+            let crowdsaleEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], startCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
+            assert.isDefined(crowdsaleEvent)
+
+            let campaign = await TimeLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
+
+            try {
+                await campaign.init("USD", 1000, 1000000, 1, 0, (Date.now() - 6000) / 1000, (Date.now() + 60000)/1000 , { from: tokenOwner })
+            } catch (e) {
+                assert.isTrue(false)
+            }
+
+            let tokensOnCrowdsale = await Setup.crowdsaleManager.getTokensOnCrowdsale.call(tokenOwner)
+            let uniqueTokens = tokensOnCrowdsale.unique().filter(e => e !== zeroAddress)
+            assert.lengthOf(uniqueTokens, 1)
+            assert.include(uniqueTokens, tokenEvent.args.token)
+        })
+
+        it("should still show 1 token on crowdsale after passing token ownership to other owner", async () => {
+            let createdTokenTx = await tokenExtension.createAssetWithoutFee(TOKEN_SYMBOL_2, TOKEN_SYMBOL_2, "description of token", 2000, 1, true, 0x0, { from: tokenOwner })
+            let tokenEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], createdTokenTx, "AssetCreated"))[0]
+            assert.isDefined(tokenEvent)
+
+            let startCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_SYMBOL_2, crowdsaleFactoryName, { from: tokenOwner })
+            let crowdsaleEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], startCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
+            assert.isDefined(crowdsaleEvent)
+
+            let campaign = await TimeLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
+
+            try {
+                await campaign.init("EUR", 1000, 1000000, 1, 0, (Date.now() - 6000) / 1000, (Date.now() + 60000)/1000 , { from: tokenOwner })
+            } catch (e) {
+                assert.isTrue(false)
+            }
+
+            let tokenPlatformAddr = await tokenExtension.platform()
+            let tokenPlatform = await ChronoBankPlatform.at(tokenPlatformAddr)
+            let changeOwnershipResultCode = await tokenPlatform.changeOwnership.call(TOKEN_SYMBOL_2, otherTokenOwner, { from: tokenOwner })
+            assert.equal(changeOwnershipResultCode.toNumber(), ErrorsEnum.OK)
+
+            await tokenPlatform.changeOwnership(TOKEN_SYMBOL_2, otherTokenOwner, { from: tokenOwner })
+
+            {
+                let tokensOnCrowdsale = await Setup.crowdsaleManager.getTokensOnCrowdsale.call(tokenOwner)
+                let uniqueTokens = tokensOnCrowdsale.unique().filter(e => e !== zeroAddress)
+                assert.lengthOf(uniqueTokens, 1)
+            }
+
+            {
+                let tokensOnCrowdsale = await Setup.crowdsaleManager.getTokensOnCrowdsale.call(otherTokenOwner)
+                let uniqueTokens = tokensOnCrowdsale.unique().filter(e => e !== zeroAddress)
+                assert.lengthOf(uniqueTokens, 1)
+                assert.include(uniqueTokens, tokenEvent.args.token)
+            }
+        })
+
+        it("should show 2 tokens after adding a new user as a part owner of a token", async () => {
+            let token2Addr = await Setup.erc20Manager.getTokenAddressBySymbol.call(TOKEN_SYMBOL_2)
+            let tokenPlatformAddr = await tokenExtension.platform()
+            let tokenPlatform = await ChronoBankPlatform.at(tokenPlatformAddr)
+            await tokenPlatform.addAssetPartOwner(TOKEN_SYMBOL_2, tokenOwner, { from: otherTokenOwner })
+
+            {
+                let tokensOnCrowdsale = await Setup.crowdsaleManager.getTokensOnCrowdsale.call(tokenOwner)
+                let uniqueTokens = tokensOnCrowdsale.unique().filter(e => e !== zeroAddress)
+                assert.lengthOf(uniqueTokens, 2)
+                assert.include(uniqueTokens, token2Addr)
+            }
+        })
+
+        it("revert", reverter.revert)
     })
 })

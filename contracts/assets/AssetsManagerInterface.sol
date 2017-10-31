@@ -14,6 +14,15 @@ contract AssetsManagerInterface {
 }
 
 
+contract AssetsManagerStatisticsInterface {
+    function getParticipatingPlatformsForUser(address _user) constant returns (address[] _platforms);
+    function getSystemAssetsForOwnerCount(address _owner) constant returns (uint);
+    function getSystemAssetsForOwner(address _owner) constant returns (address[] _tokens, address[] _tokenPlatforms, uint[] _totalSupplies);
+    function getManagersForAssetSymbol(bytes32 _symbol) constant returns (address[] _managers);
+    function getManagers(address _owner) constant returns (address[]);
+}
+
+
 contract TokenExtensionRegistry {
     function containsTokenExtension(address _tokenExtension) public constant returns (bool);
 }

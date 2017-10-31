@@ -49,13 +49,15 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     *  @notice this contract should be owner of bounty token
     */
     function ChronoMintCrowdsale(address _serviceProvider, bytes32 _symbol, address _priceTicker)
-                    GenericCrowdsale(_serviceProvider, _symbol, _priceTicker) {
+        GenericCrowdsale(_serviceProvider, _symbol, _priceTicker)
+        public
+    {
     }
 
     /**
     *  Enable Ether sale
     */
-    function enableEtherSale(address _fund) onlyAuthorised returns (uint) {
+    function enableEtherSale(address _fund) onlyAuthorised public returns (uint) {
         require(_fund != 0x0);
         fund = _fund;
 
@@ -67,7 +69,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     /**
     *  Disable Ether sale
     */
-    function disableEtherSale() onlyAuthorised returns (uint) {
+    function disableEtherSale() onlyAuthorised public returns (uint) {
         delete fund;
         unregisterSalesAgent(this, "ETH");
 
@@ -77,7 +79,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     /**
     *  Allow to receive ERC20 token with given symbols.
     */
-    function enableERC20Sale(bytes32[] whiteList) onlyAuthorised returns (uint) {
+    function enableERC20Sale(bytes32[] whiteList) onlyAuthorised public returns (uint) {
         ERC20Service erc20Service = lookupERC20Service();
         for (uint i = 0; i < whiteList.length; i++) {
             address allowedToken = erc20Service.getTokenAddressBySymbol(whiteList[i]);
@@ -93,7 +95,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     /**
     *  Deny to receive ERC20 token with given symbols.
     */
-    function disableERC20Sale(bytes32[] blackList) onlyAuthorised returns (uint) {
+    function disableERC20Sale(bytes32[] blackList) onlyAuthorised public returns (uint) {
         ERC20Service erc20Service = lookupERC20Service();
         for (uint i = 0; i < blackList.length; i++) {
             address disallowedToken = erc20Service.getTokenAddressBySymbol(blackList[i]);
@@ -112,7 +114,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     *
     * Ether sale must be enabled.
     */
-    function () onlyRunning isEtherSale payable {
+    function () onlyRunning isEtherSale payable public {
         this.sale(msg.sender, msg.value, "ETH");
 
         ReceivedEther(address(this), msg.sender, msg.value);
@@ -124,7 +126,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     * Note that any refunds from proxy buyers should be handled separately,
     * and not through this contract.
     */
-    function refund() onlyFailure {
+    function refund() onlyFailure public {
         uint weiDonation = this.refund(msg.sender, "ETH");
         if (!msg.sender.send(weiDonation)) revert();
 
@@ -136,7 +138,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     *
     * ERC20 sale must be enabled to token with given symbol.
     */
-    function sellERC20(address _token) onlyRunning isERC20Sale(_token) payable {
+    function sellERC20(address _token) onlyRunning isERC20Sale(_token) payable public {
         uint remaining = ERC20Interface(_token).allowance(msg.sender, this);
         bytes32 symbol = getTokenSymbol(_token);
 
@@ -156,7 +158,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     * Note that any refunds from proxy buyers should be handled separately,
     * and not through this contract.
     */
-    function refundERC20(address _token) onlyFailure payable {
+    function refundERC20(address _token) onlyFailure payable public {
         require(_token != 0x0);
         require(lookupERC20Service().isTokenExists(_token));
 
@@ -174,21 +176,21 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     /**
     * @dev Withdrawal Ether balance on successfull finish
     */
-    function withdraw() onlySuccess onlyAuthorised isEtherSale {
+    function withdraw() onlySuccess onlyAuthorised isEtherSale public {
         uint balance = this.balance;
         if (!fund.send(balance)) revert();
 
         WithdrawEther(address(this), balance);
     }
 
-    function lookupERC20Service() constant returns (ERC20Service) {
+    function lookupERC20Service() public constant returns (ERC20Service) {
         return ERC20Service(lookupService("ERC20Manager"));
     }
 
     /**
     *   Returns token symbol by given address.
     */
-    function getTokenSymbol(address _token) constant returns (bytes32) {
+    function getTokenSymbol(address _token) public constant returns (bytes32) {
         var (,, symbol,,,,) =
               lookupERC20Service().getTokenMetaData(_token);
         return symbol;

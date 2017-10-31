@@ -13,7 +13,7 @@ import "../core/common/BaseManager.sol";
 *  See CrowdsaleManager.
 */
 contract CrowdsaleFactory is BaseManager {
-    StorageInterface.Address priceTiker;
+    StorageInterface.Address priceTicker;
 
     modifier onlyCrowdsaleManager() {
         if (msg.sender == lookupManager("CrowdsaleManager")) {
@@ -22,26 +22,26 @@ contract CrowdsaleFactory is BaseManager {
     }
 
     function CrowdsaleFactory(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
-        priceTiker.init("priceTiker");
+        priceTicker.init("priceTicker");
     }
 
-    function init(address _contractsManager, address _priceTiker) onlyContractOwner public returns (uint) {
+    function init(address _contractsManager, address _priceTicker) onlyContractOwner public returns (uint) {
         BaseManager.init(_contractsManager, store.crate);
 
-        setPriceTicker(_priceTiker);
+        setPriceTicker(_priceTicker);
         return OK;
     }
 
-    function setPriceTicker(address _priceTiker) onlyContractOwner public {
-        require(_priceTiker != 0x0);
+    function setPriceTicker(address _priceTicker) onlyContractOwner public {
+        require(_priceTicker != 0x0);
 
-        store.set(priceTiker, _priceTiker);
+        store.set(priceTicker, _priceTicker);
     }
 
     function createCrowdsale(bytes32 _symbol) public returns (address);
 
-    function getPriceTicker() constant returns (address) {
-        return store.get(priceTiker);
+    function getPriceTicker() public constant returns (address) {
+        return store.get(priceTicker);
     }
 }
 
@@ -51,10 +51,10 @@ contract CrowdsaleFactory is BaseManager {
 *  Instantiates a TimeLimitedCrowdsale contract.
 */
 contract TimeLimitedCrowdsaleFactory is CrowdsaleFactory {
-    function TimeLimitedCrowdsaleFactory(Storage _store, bytes32 _crate) CrowdsaleFactory(_store, _crate) {
+    function TimeLimitedCrowdsaleFactory(Storage _store, bytes32 _crate) CrowdsaleFactory(_store, _crate) public {
     }
 
-    function createCrowdsale(bytes32 _symbol) onlyCrowdsaleManager returns (address) {
+    function createCrowdsale(bytes32 _symbol) onlyCrowdsaleManager public returns (address) {
         require(_symbol != 0x0);
 
         address crowdsale = new TimeLimitedCrowdsale(contractsManager, _symbol, getPriceTicker());
@@ -70,10 +70,10 @@ contract TimeLimitedCrowdsaleFactory is CrowdsaleFactory {
 *  Instantiates a BlockLimitedCrowdsale contract.
 */
 contract BlockLimitedCrowdsaleFactory is CrowdsaleFactory {
-    function BlockLimitedCrowdsaleFactory(Storage _store, bytes32 _crate) CrowdsaleFactory(_store, _crate) {
+    function BlockLimitedCrowdsaleFactory(Storage _store, bytes32 _crate) CrowdsaleFactory(_store, _crate) public {
     }
 
-    function createCrowdsale(bytes32 _symbol) onlyCrowdsaleManager returns (address) {
+    function createCrowdsale(bytes32 _symbol) onlyCrowdsaleManager public returns (address) {
         require(_symbol != 0x0);
 
         address crowdsale = new BlockLimitedCrowdsale(contractsManager, _symbol, getPriceTicker());

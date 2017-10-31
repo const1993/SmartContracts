@@ -20,7 +20,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     uint constant ERROR_CROWDFUNDING_NOT_ASSET_OWNER = 3002;
     uint constant ERROR_CROWDFUNDING_DOES_NOT_EXIST = 3003;
 
-    StorageInterface.AddressesSet compains;
+    StorageInterface.AddressesSet campaigns;
 
     modifier onlyAssetAuthorizedContract() {
         if (TokenExtensionRegistry(lookupManager("AssetsManager")).containsTokenExtension(msg.sender)) {
@@ -32,7 +32,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     *  Constructor
     */
     function CrowdsaleManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
-        compains.init('compains');
+        campaigns.init('campaigns');
     }
 
     /**
@@ -58,7 +58,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
             return (0x0, _emitError(ERROR_CROWDFUNDING_INVALID_INVOCATION));
         }
 
-        store.add(compains, crowdsale);
+        store.add(campaigns, crowdsale);
         _emitCrowdsaleCreated(_creator, _symbol, crowdsale);
 
         return (crowdsale, OK);
@@ -72,7 +72,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
             return _emitError(ERROR_CROWDFUNDING_NOT_ASSET_OWNER);
         }
 
-        if (!store.includes(compains, crowdsale)) {
+        if (!store.includes(campaigns, crowdsale)) {
             return _emitError(ERROR_CROWDFUNDING_DOES_NOT_EXIST);
         }
 
@@ -80,7 +80,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
             return _emitError(ERROR_CROWDFUNDING_INVALID_INVOCATION);
         }
 
-        store.remove(compains, crowdsale);
+        store.remove(campaigns, crowdsale);
 
         BaseCrowdsale(crowdsale).destroy(); // TODO: @ahiatsevich refund to CrowdsaleManager??
 
@@ -96,6 +96,24 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     }
 
     /**
+    *  Returns user's tokens placed on crowdsale
+    */
+    function getTokensOnCrowdsale(address _user) public constant returns (address[] _tokens) {
+        AssetsManagerInterface assetsManager = lookupAssetsManager();
+        AssetsManagerStatisticsInterface assetsStatisticsManager = AssetsManagerStatisticsInterface(address(assetsManager));
+        _tokens = new address[](assetsStatisticsManager.getSystemAssetsForOwnerCount(_user));
+        uint _crowdsaleCount = store.count(campaigns);
+        uint _tokenPointer;
+        bytes32 _symbol;
+        for (uint _crowdsaleIdx = 0; _crowdsaleIdx < _crowdsaleCount && _tokenPointer < _tokens.length; ++_crowdsaleIdx) {
+            _symbol = BaseCrowdsale(store.get(campaigns, _crowdsaleIdx)).getSymbol();
+            if (assetsManager.isAssetOwner(_symbol, _user)) {
+                _tokens[_tokenPointer++] = assetsManager.getAssetBySymbol(_symbol);
+            }
+        }
+    }
+
+    /**
     *  Returns AssetsManager.
     */
     function lookupAssetsManager() internal constant returns (AssetsManagerInterface) {
@@ -103,15 +121,15 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     }
 
     function _emitCrowdsaleCreated(address creator, bytes32 symbol, address crowdsale) internal {
-        CrowdsaleManager(getEventsHistory()).emitCrowdsaleCreated(creator, symbol, crowdsale);
+        CrowdsaleManagerEmitter(getEventsHistory()).emitCrowdsaleCreated(creator, symbol, crowdsale);
     }
 
     function _emitCrowdsaleDeleted(address crowdsale) internal {
-        CrowdsaleManager(getEventsHistory()).emitCrowdsaleDeleted(crowdsale);
+        CrowdsaleManagerEmitter(getEventsHistory()).emitCrowdsaleDeleted(crowdsale);
     }
 
     function _emitError(uint error) internal returns (uint) {
-        CrowdsaleManager(getEventsHistory()).emitError(error);
+        CrowdsaleManagerEmitter(getEventsHistory()).emitError(error);
         return error;
     }
 }

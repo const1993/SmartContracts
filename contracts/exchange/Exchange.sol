@@ -86,16 +86,16 @@ contract Exchange is Object {
         return error;
     }
 
-    function _emitFeeUpdated(uint feePercent) internal {
-        getEventsHistory().emitFeeUpdated(feePercent);
+    function _emitFeeUpdated(uint _feePercent) internal {
+        getEventsHistory().emitFeeUpdated(_feePercent);
     }
 
-    function _emitPricesUpdated(uint buyPrice, uint sellPrice) internal {
-        getEventsHistory().emitPricesUpdated(buyPrice, sellPrice);
+    function _emitPricesUpdated(uint _buyPrice, uint _sellPrice) internal {
+        getEventsHistory().emitPricesUpdated(_buyPrice, _sellPrice);
     }
 
-    function _emitActiveChanged(bool isActive) internal {
-        getEventsHistory().emitActiveChanged(isActive);
+    function _emitActiveChanged(bool _isActive) internal {
+        getEventsHistory().emitActiveChanged(_isActive);
     }
 
     /**
@@ -107,7 +107,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function setupEventsHistory(address _eventsHistory) onlyContractOwner returns (uint) {
+    function setupEventsHistory(address _eventsHistory) onlyContractOwner public returns (uint) {
         if (address(eventsHistory) != 0x0) {
             return _error(ERROR_EXCHANGE_INVALID_INVOCATION);
         }
@@ -125,7 +125,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function init(Asset _asset, address _rewards, address _delegate, uint _fee) onlyContractOwner returns (uint errorCode) {
+    function init(Asset _asset, address _rewards, address _delegate, uint _fee) onlyContractOwner public returns (uint errorCode) {
         if (address(asset) != 0x0 || rewards != 0x0) {
             return _error(ERROR_EXCHANGE_INVALID_INVOCATION);
         }
@@ -150,7 +150,7 @@ contract Exchange is Object {
         return OK;
     }
 
-    function setActive(bool _active) onlyContractOwner returns (uint) {
+    function setActive(bool _active) onlyContractOwner public returns (uint) {
         if (isActive != _active) {
             _emitActiveChanged(_active);
         }
@@ -170,7 +170,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function setPrices(uint _buyPrice, uint _sellPrice) onlyContractOwner returns (uint) {
+    function setPrices(uint _buyPrice, uint _sellPrice) onlyContractOwner public returns (uint) {
         if (_sellPrice < _buyPrice) {
             return _error(ERROR_EXCHANGE_INVALID_PRICE);
         }
@@ -204,7 +204,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function sell(uint _amount, uint _price) returns (uint) {
+    function sell(uint _amount, uint _price) public returns (uint) {
         if (!isActive) {
             return _error(ERROR_EXCHANGE_MAINTENANCE_MODE);
         }
@@ -227,7 +227,7 @@ contract Exchange is Object {
         }
 
         if (!msg.sender.send(total)) {
-            throw;
+            revert();
         }
 
         Sell(msg.sender, _amount, total);
@@ -245,7 +245,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function buy(uint _amount, uint _price) payable returns (uint) {
+    function buy(uint _amount, uint _price) payable public returns (uint) {
         if (!isActive) {
             return _error(ERROR_EXCHANGE_MAINTENANCE_MODE);
         }
@@ -282,7 +282,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function withdrawTokens(address _recipient, uint _amount) onlyContractOwner returns (uint) {
+    function withdrawTokens(address _recipient, uint _amount) onlyContractOwner public returns (uint) {
         if (_balanceOf(this) < _amount) {
             return _error(ERROR_EXCHANGE_INSUFFICIENT_BALANCE);
         }
@@ -310,7 +310,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function withdrawAllTokens(address _recipient) onlyContractOwner returns (uint) {
+    function withdrawAllTokens(address _recipient) onlyContractOwner public returns (uint) {
         return withdrawTokens(_recipient, _balanceOf(this));
     }
 
@@ -324,7 +324,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function withdrawEth(address _recipient, uint _amount) onlyContractOwner returns (uint) {
+    function withdrawEth(address _recipient, uint _amount) onlyContractOwner public returns (uint) {
         if (this.balance < _amount) {
             return _error(ERROR_EXCHANGE_INSUFFICIENT_ETHER_SUPPLY);
         }
@@ -353,7 +353,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function withdrawAllEth(address _recipient) onlyContractOwner() returns (uint) {
+    function withdrawAllEth(address _recipient) onlyContractOwner public returns (uint) {
         return withdrawEth(_recipient, this.balance);
     }
 
@@ -366,7 +366,7 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function withdrawAll(address _recipient) onlyContractOwner returns (uint) {
+    function withdrawAll(address _recipient) onlyContractOwner public returns (uint) {
         uint withdrawAllTokensResult = withdrawAllTokens(_recipient);
         if (withdrawAllTokensResult != OK) {
             return withdrawAllTokensResult;
@@ -384,19 +384,19 @@ contract Exchange is Object {
         Error(errorCode);
     }
 
-    function emitFeeUpdated(uint feePercent) {
-        FeeUpdated(msg.sender, feePercent);
+    function emitFeeUpdated(uint _feePercent) public {
+        FeeUpdated(msg.sender, _feePercent);
     }
 
-    function emitPricesUpdated(uint buyPrice, uint sellPrice) {
-        PricesUpdated(msg.sender, buyPrice, sellPrice);
+    function emitPricesUpdated(uint _buyPrice, uint _sellPrice) public {
+        PricesUpdated(msg.sender, _buyPrice, _sellPrice);
     }
 
-    function emitActiveChanged(bool isActive) {
-        ActiveChanged(msg.sender, isActive);
+    function emitActiveChanged(bool _isActive) public {
+        ActiveChanged(msg.sender, _isActive);
     }
 
-    function getEventsHistory() constant returns (ExchangeEmitter) {
+    function getEventsHistory() public constant returns (ExchangeEmitter) {
         return address(eventsHistory) != 0x0 ? eventsHistory : ExchangeEmitter(this);
     }
     /**
@@ -412,7 +412,7 @@ contract Exchange is Object {
     function _mul(uint _a, uint _b) internal constant returns (uint) {
         uint result = _a * _b;
         if (_a != 0 && result / _a != _b) {
-            throw;
+            revert();
         }
         return result;
     }
@@ -420,11 +420,11 @@ contract Exchange is Object {
     /**
      * Accept all ether to maintain exchange supply.
      */
-    function() payable {
+    function() payable public {
         if (msg.value != 0) {
             ReceivedEther(msg.sender, msg.value);
         } else {
-            throw;
+            revert();
         }
     }
 }

@@ -28,32 +28,32 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
-    function isExchangeOwner(address _exchange, address _owner) constant returns (bool) {
+    function isExchangeOwner(address _exchange, address _owner) public constant returns (bool) {
         for (uint i = 0; i < owners[_exchange].length; i++) {
             if (owners[_exchange][i] == _owner) {return true;}
         }
         return false;
     }
 
-    function ExchangeManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) {
+    function ExchangeManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
 
     }
 
-    function init(address _contractsManager) onlyContractOwner returns (uint) {
+    function init(address _contractsManager) onlyContractOwner public returns (uint) {
         BaseManager.init(_contractsManager, "ExchangeManager");
 
         return OK;
     }
 
-    function forward(address _exchange, bytes data) onlyExchangeOwner(_exchange) returns (uint errorCode) {
+    function forward(address _exchange, bytes data) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
         if (!Exchange(_exchange).call(data)) {
-            throw;
+            revert();
         }
 
         errorCode = OK;
     }
 
-    function addExchange(address _exchange) returns (uint errorCode) {
+    function addExchange(address _exchange) public returns (uint errorCode) {
         Exchange(_exchange).buyPrice();
         Exchange(_exchange).sellPrice();
         if (owners[_exchange].length == 0) {
@@ -66,7 +66,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
-    function editExchange(address _exchangeOld, address _exchangeNew) onlyExchangeOwner(_exchangeOld) returns (uint errorCode) {
+    function editExchange(address _exchangeOld, address _exchangeNew) onlyExchangeOwner(_exchangeOld) public returns (uint errorCode) {
         for (uint i = 0; i < exchanges.length; i++) {
             if (exchanges[i] == _exchangeOld) {
                 exchanges[i] = _exchangeNew;
@@ -79,7 +79,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         errorCode = _emitError(ERROR_EXCHANGE_STOCK_NOT_FOUND);
     }
 
-    function removeExchange(address _exchange) onlyExchangeOwner(_exchange) returns (uint errorCode) {
+    function removeExchange(address _exchange) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
         for (uint i = 0; i < exchanges.length; i++) {
             if (exchanges[i] == _exchange) {
                 exchanges[i] = exchanges[exchanges.length - 1];
@@ -92,7 +92,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return OK;
     }
 
-    function createExchange(bytes32 _symbol, bool _useTicker) returns (uint errorCode) {
+    function createExchange(bytes32 _symbol, bool _useTicker) public returns (uint errorCode) {
         address _erc20Manager = lookupManager("ERC20Manager");
         address tokenAddr = ERC20Manager(_erc20Manager).getTokenAddressBySymbol(_symbol);
         address rewards = lookupManager("Rewards");
@@ -116,7 +116,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         errorCode = OK;
     }
 
-    function addExchangeOwner(address _exchange, address _owner) onlyExchangeOwner(_exchange) returns (uint errorCode) {
+    function addExchangeOwner(address _exchange, address _owner) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
         for (uint i = 0; i < owners[_exchange].length; i++) {
             if (owners[_exchange][i] == _owner) {
                 return _emitError(ERROR_EXCHANGE_STOCK_INVALID_PARAMETER);
@@ -127,7 +127,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return OK;
     }
 
-    function removeExchangeOwner(address _exchange, address _owner) onlyExchangeOwner(_exchange) returns (uint errorCode) {
+    function removeExchangeOwner(address _exchange, address _owner) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
         if (_owner == msg.sender) {
             return _emitError(ERROR_EXCHANGE_STOCK_INVALID_PARAMETER);
         }
@@ -144,11 +144,11 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         errorCode = _emitError(ERROR_EXCHANGE_STOCK_NOT_FOUND);
     }
 
-    function getExchangeOwners(address _exchange) constant returns (address[]) {
+    function getExchangeOwners(address _exchange) public constant returns (address[]) {
         return owners[_exchange];
     }
 
-    function getExchangesForOwner(address owner) constant returns (address[]) {
+    function getExchangesForOwner(address owner) public constant returns (address[]) {
         uint counter;
         uint i;
         for (i = 0; i < exchanges.length; i++) {

@@ -27,7 +27,7 @@ const PollManager = artifacts.require("./PollManager.sol");
 const PollDetails = artifacts.require("./PollDetails.sol");
 const PlatformTokenExtensionGatewayManager = artifacts.require('./PlatformTokenExtensionGatewayManager.sol')
 const AssetOwnershipDelegateResolver = artifacts.require('./AssetOwnershipDelegateResolver.sol')
-//const CrowdsaleManager = artifacts.require("./CrowdsaleManager.sol");
+const CrowdsaleManager = artifacts.require("./CrowdsaleManager.sol");
 
 const contractTypes = {
   LOCManager: "LOCManager", // LOCManager
@@ -45,7 +45,8 @@ const contractTypes = {
   VotingDetails: "PollDetails",
   CrowdsaleManager: "CrowdsaleManager",
   TokenExtensionGateway: "TokenExtensionGateway",
-  AssetOwnershipResolver: "AssetOwnershipResolver"
+  AssetOwnershipResolver: "AssetOwnershipResolver",
+  CrowdsaleManager: "CrowdsaleManager"
 }
 
 let storage
@@ -130,8 +131,8 @@ var setup = function (callback) {
       MultiEventsHistory.deployed(),
       StorageManager.deployed(),
       PlatformTokenExtensionGatewayManager.deployed(),
-      AssetOwnershipDelegateResolver.deployed()
-      //CrowdsaleManager.deployed()
+      AssetOwnershipDelegateResolver.deployed(),
+      CrowdsaleManager.deployed()
     ])
   }).then((instances) => {
     [
@@ -161,8 +162,8 @@ var setup = function (callback) {
       multiEventsHistory,
       storageManager,
       tokenExtensionGateway,
-      assetOwnershipDelegateResolver
-      //crowdsaleManager
+      assetOwnershipDelegateResolver,
+      crowdsaleManager
     ] = instances
   }).then(() => {
     module.exports.storage = storage
@@ -191,8 +192,7 @@ var setup = function (callback) {
     module.exports.storageManager = storageManager
     module.exports.tokenExtensionGateway = tokenExtensionGateway
     module.exports.assetOwnershipResolver = assetOwnershipDelegateResolver
-
-    //module.exports.crowdsaleManager = crowdsaleManager
+    module.exports.crowdsaleManager = crowdsaleManager
   }).then(() => {
     callback()
   }).catch(function (e) {

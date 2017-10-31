@@ -23,24 +23,23 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     StorageInterface.AddressesSet compains;
 
     modifier onlyAssetAuthorizedContract() {
-        if (!TokenExtensionRegistry(lookupManager("AssetsManager")).containsTokenExtension(msg.sender)) return;
-        _;
+        if (TokenExtensionRegistry(lookupManager("AssetsManager")).containsTokenExtension(msg.sender)) {
+            _;
+        }
     }
 
     /**
     *  Constructor
     */
-    function CrowdsaleManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) {
+    function CrowdsaleManager(Storage _store, bytes32 _crate) public BaseManager(_store, _crate) {
         compains.init('compains');
     }
 
     /**
     *  Initialize
     */
-    function init(address _contractsManager) onlyContractOwner returns (uint) {
-        BaseManager.init(_contractsManager, "CrowdsaleManager");
-
-        return OK;
+    function init(address _contractsManager) onlyContractOwner public returns (uint) {
+        return BaseManager.init(_contractsManager, "CrowdsaleManager");
     }
 
     /**
@@ -48,7 +47,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     */
     function createCrowdsale(address _creator, bytes32 _symbol, bytes32 _factoryName)
     onlyAssetAuthorizedContract
-    returns (address, uint) {
+    public returns (address, uint) {
         if (!lookupAssetsManager().isAssetOwner(_symbol, _creator)) {
             return (0x0, _emitError(ERROR_CROWDFUNDING_NOT_ASSET_OWNER));
         }
@@ -68,7 +67,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     /**
     *  Deletes Crowdsale if It is allowed.
     */
-    function deleteCrowdsale(address crowdsale) onlyAssetAuthorizedContract returns (uint) {
+    function deleteCrowdsale(address crowdsale) onlyAssetAuthorizedContract public returns (uint) {
         if (!lookupAssetsManager().isAssetOwner(BaseCrowdsale(crowdsale).getSymbol(), crowdsale)) {
             return _emitError(ERROR_CROWDFUNDING_NOT_ASSET_OWNER);
         }
@@ -92,7 +91,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     /**
     *  Returns CrowdsaleFactory by given _factoryName.
     */
-    function getCrowdsaleFactory(bytes32 _factoryName) constant returns (CrowdsaleFactory) {
+    function getCrowdsaleFactory(bytes32 _factoryName) public constant returns (CrowdsaleFactory) {
         return CrowdsaleFactory(lookupManager(_factoryName));
     }
 

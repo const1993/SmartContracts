@@ -189,7 +189,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     *   Returns token symbol by given address.
     */
     function getTokenSymbol(address _token) constant returns (bytes32) {
-        var (token, name, symbol, url, decimals, ipfsHash, swarmHash) =
+        var (,, symbol,,,,) =
               lookupERC20Service().getTokenMetaData(_token);
         return symbol;
     }

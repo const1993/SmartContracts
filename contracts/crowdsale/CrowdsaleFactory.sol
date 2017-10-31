@@ -21,24 +21,24 @@ contract CrowdsaleFactory is BaseManager {
         }
     }
 
-    function CrowdsaleFactory(Storage _store, bytes32 _crate) BaseManager(_store, _crate) {
+    function CrowdsaleFactory(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
         priceTiker.init("priceTiker");
     }
 
-    function init(address _contractsManager, address _priceTiker) onlyContractOwner returns (uint) {
+    function init(address _contractsManager, address _priceTiker) onlyContractOwner public returns (uint) {
         BaseManager.init(_contractsManager, store.crate);
 
         setPriceTicker(_priceTiker);
         return OK;
     }
 
-    function setPriceTicker(address _priceTiker) onlyContractOwner {
+    function setPriceTicker(address _priceTiker) onlyContractOwner public {
         require(_priceTiker != 0x0);
 
         store.set(priceTiker, _priceTiker);
     }
 
-    function createCrowdsale(bytes32 _symbol) returns (address);
+    function createCrowdsale(bytes32 _symbol) public returns (address);
 
     function getPriceTicker() constant returns (address) {
         return store.get(priceTiker);

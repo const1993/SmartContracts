@@ -31,7 +31,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
     /**
     *  Constructor
     */
-    function CrowdsaleManager(Storage _store, bytes32 _crate) public BaseManager(_store, _crate) {
+    function CrowdsaleManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
         compains.init('compains');
     }
 

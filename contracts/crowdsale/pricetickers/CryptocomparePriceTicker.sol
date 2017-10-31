@@ -3,6 +3,7 @@ pragma solidity ^0.4.11;
 import "../../core/common/Object.sol";
 import "../base/PriceTicker.sol";
 import "oraclize/usingOraclize.sol";
+import "../../core/lib/StringsLib.sol";
 
 /**
 *  @title CryptoCompare Price Ticker
@@ -29,7 +30,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
     /**
     *  Only Oraclize access rights checks
     */
-    modifier onlyOraclize() {
+    modifier onlyOraclize {
         if (msg.sender != oraclize_cbAddress()) revert();
         _;
     }
@@ -37,7 +38,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
     /**
     *  Implement PriceTicker interface.
     */
-    function isPriceAvailable(bytes32 _fsym, bytes32 _tsym) constant returns (bool) {
+    function isPriceAvailable(bytes32 _fsym, bytes32 _tsym) public constant returns (bool) {
         if (isEquivalentSymbol(_fsym, _tsym)) return true;
 
         ExchangePrice memory exchangePrice = exchangePrices[sha3(_fsym, _tsym)];
@@ -47,7 +48,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
     /**
     *  Implement PriceTicker interface.
     */
-    function price(bytes32 _fsym, bytes32 _tsym) constant returns (uint, uint) {
+    function price(bytes32 _fsym, bytes32 _tsym) public constant returns (uint, uint) {
         if (isEquivalentSymbol(_fsym, _tsym)) return (1, 0);
 
         ExchangePrice memory exchangePrice = exchangePrices[sha3(_fsym, _tsym)];
@@ -57,7 +58,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
     /**
     *  Implement PriceTicker interface.
     */
-    function requestPrice(bytes32 _fsym, bytes32 _tsym) payable returns (bytes32, uint) {
+    function requestPrice(bytes32 _fsym, bytes32 _tsym) payable public returns (bytes32, uint) {
         assert(!isEquivalentSymbol(_fsym, _tsym));
 
         if (_fsym == _tsym) {
@@ -79,7 +80,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
     /**
     *  Oraclize query callback.
     */
-    function __callback(bytes32 _queryId, string _result) onlyOraclize {
+    function __callback(bytes32 _queryId, string _result) public onlyOraclize {
         Query memory query = queries[_queryId];
 
         // invalid query, nothing to do
@@ -124,32 +125,14 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
 
     function buildQuery(bytes32 _fsym, bytes32 _tsym, bytes32 _format) internal constant returns (string) {
         return strConcat("json(https://min-api.cryptocompare.com/data/price?fsym=",
-                          bytes32ToString(_fsym),
+                          StringsLib.bytes32ToString(_fsym),
                           "&tsyms=",
-                          bytes32ToString(_tsym),
+                          StringsLib.bytes32ToString(_tsym),
                           ").",
-                          bytes32ToString(_format));
+                          StringsLib.bytes32ToString(_format));
     }
 
     function strConcat(string _a, string _b, string _c, string _d, string _e, string _f) internal constant returns (string) {
         return strConcat(strConcat(_a, _b, _c, _d, _e), _f);
-    }
-
-    // TODO: ahiatsevich - move to library
-    function bytes32ToString(bytes32 x) internal constant returns (string) {
-        bytes memory bytesString = new bytes(32);
-        uint charCount = 0;
-        for (uint j = 0; j < 32; j++) {
-            byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
-            if (char != 0) {
-                bytesString[charCount] = char;
-                charCount++;
-            }
-        }
-        bytes memory bytesStringTrimmed = new bytes(charCount);
-        for (j = 0; j < charCount; j++) {
-            bytesStringTrimmed[j] = bytesString[j];
-        }
-        return string(bytesStringTrimmed);
     }
 }

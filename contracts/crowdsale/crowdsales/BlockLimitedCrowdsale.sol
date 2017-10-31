@@ -21,7 +21,8 @@ contract BlockLimitedCrowdsale is ChronoMintCrowdsale {
     Params public config;
 
     function BlockLimitedCrowdsale(address _serviceProvider, bytes32 _symbol, address _priceTicker)
-              ChronoMintCrowdsale(_serviceProvider, _symbol, _priceTicker)
+        ChronoMintCrowdsale(_serviceProvider, _symbol, _priceTicker)
+        public
     {
     }
 
@@ -33,7 +34,7 @@ contract BlockLimitedCrowdsale is ChronoMintCrowdsale {
         uint _exchangeRateDecimals,
         uint256 _startBlock,
         uint256 _stopBlock
-    ) onlyAuthorised onlyOnce {
+    ) onlyAuthorised onlyOnce public {
         require (_stopBlock > _startBlock);
         require (block.number < _stopBlock);
 
@@ -43,13 +44,13 @@ contract BlockLimitedCrowdsale is ChronoMintCrowdsale {
         config.stopBlock = _stopBlock;
     }
 
-    function isRunning() constant returns (bool) {
+    function isRunning() public constant returns (bool) {
         return block.number > config.startBlock
                   && block.number < config.stopBlock
                   && GenericCrowdsale.isRunning();
     }
 
-    function isFailed() constant returns (bool) {
+    function isFailed() public constant returns (bool) {
         return block.number > config.stopBlock
                 && !GenericCrowdsale.isSuccessed();
     }

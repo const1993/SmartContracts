@@ -21,7 +21,8 @@ contract TimeLimitedCrowdsale is ChronoMintCrowdsale {
     Params public config;
 
     function TimeLimitedCrowdsale(address _serviceProvider, bytes32 _symbol, address _priceTicker)
-            ChronoMintCrowdsale(_serviceProvider, _symbol, _priceTicker)
+        ChronoMintCrowdsale(_serviceProvider, _symbol, _priceTicker)
+        public
     {
     }
 
@@ -33,7 +34,7 @@ contract TimeLimitedCrowdsale is ChronoMintCrowdsale {
         uint _exchangeRateDecimals,
         uint _startTime,
         uint _endTime
-    ) onlyAuthorised onlyOnce {
+    ) onlyAuthorised onlyOnce public {
         require(_endTime > _startTime);
         require(now < _endTime);
 
@@ -43,13 +44,13 @@ contract TimeLimitedCrowdsale is ChronoMintCrowdsale {
         config.endTime = _endTime;
     }
 
-    function isRunning() constant returns (bool) {
+    function isRunning() public constant returns (bool) {
         return now > config.startTime
                 && now < config.endTime
                 && GenericCrowdsale.isRunning();
     }
 
-    function isFailed() constant returns (bool) {
+    function isFailed() public constant returns (bool) {
         return now > config.endTime
                 && !GenericCrowdsale.isSuccessed();
     }

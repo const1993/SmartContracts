@@ -2,7 +2,6 @@ const Setup = require('../setup/setup')
 const ErrorsEnum = require("../common/errors")
 var eventsHelper = require('./helpers/eventsHelper');
 const bytes32 = require('./helpers/bytes32');
-const abiDecoder = require('abi-decoder')
 
 const AssetsManager = artifacts.require('./AssetsManager.sol')
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
@@ -44,7 +43,6 @@ contract('CrowdsaleManager', function(accounts) {
             .then(_tokenExtension => tokenExtension = _tokenExtension)
             .then(() => PlatformTokenExtensionGatewayManagerEmitter.at(platformRequestedEvent.args.tokenExtension))
             .then(_emitter => tokenExtensionEmitter = _emitter)
-            // .then(() => abiDecoder.addABI(tokenExtensionEmitter.abi))
         })
         .then(() => tokenExtension.createAssetWithoutFee(TOKEN_1, "Awesome Token 1",'Token 1', 0, 0, true, 0x0, { from: tokenOwner }))
         .then(() => tokenExtension.createAssetWithoutFee(TOKEN_2, "Awesome Token 2",'Token 2', 100, 0, false, 0x0, { from: tokenOwner }))
@@ -54,7 +52,6 @@ contract('CrowdsaleManager', function(accounts) {
     });
 
     after('clean up', function(done) {
-        // abiDecoder.removeABI(tokenExtensionEmitter.abi)
         done()
     })
 
@@ -83,7 +80,7 @@ contract('CrowdsaleManager', function(accounts) {
         it("Should not be possible to start crowdsale via direct `createCrowdsale` execution", async () => {
             let failedResultTuple = await Setup.crowdsaleManager.createCrowdsale.call(nonOwner, "LHT", crowdsaleFactoryName)
             assert.equal(failedResultTuple[0], 0x0)
-            assert.equal(failedResultTuple[1], ErrorsEnum.UNAUTHORIZED)
+            assert.equal(failedResultTuple[1].toNumber(), ErrorsEnum.UNAUTHORIZED)
         })
 
         it("Should not be possible to delete any crowdsale via direct `deleteCrowdsale` execution", async () => {
@@ -96,13 +93,13 @@ contract('CrowdsaleManager', function(accounts) {
         var campaignAddr
 
         it("Should not be possible to start crowdsale campaign by non-asset-owner", async () => {
-          let failedResultCode = await tokenExtension.createCrowdsaleCampaign.call(TOKEN_1, crowdsaleFactoryName, { from: nonOwner })
-          assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
+            let failedResultCode = await tokenExtension.createCrowdsaleCampaign.call(TOKEN_1, crowdsaleFactoryName, { from: nonOwner })
+            assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
         })
 
         it("Should be possible to start crowdsale campaign by asset-owner", async () => {
             let successCreateCrowdsaleResultCode = await tokenExtension.createCrowdsaleCampaign.call(TOKEN_1, crowdsaleFactoryName, { from: tokenOwner })
-            assert.equal(successCreateCrowdsaleResultCode, ErrorsEnum.OK)
+            assert.equal(successCreateCrowdsaleResultCode.toNumber(), ErrorsEnum.OK)
 
             let createCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_1, crowdsaleFactoryName, { from: tokenOwner })
             let event = (await eventsHelper.findEvent([tokenExtensionEmitter], createCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
@@ -120,7 +117,7 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("Should be possible to delete newly created and not started crowdsale campaign by asset-owner", async () => {
             let successDeleteCrowdsaleResultCode = await tokenExtension.deleteCrowdsaleCampaign.call(campaignAddr, { from: tokenOwner })
-            assert.equal(successDeleteCrowdsaleResultCode, ErrorsEnum.OK)
+            assert.equal(successDeleteCrowdsaleResultCode.toNumber(), ErrorsEnum.OK)
 
             let deleteCrowdsaleTx = await tokenExtension.deleteCrowdsaleCampaign(campaignAddr, { from: tokenOwner })
             let event = (await eventsHelper.findEvent([tokenExtensionEmitter], deleteCrowdsaleTx, "CrowdsaleCampaignRemoved"))[0]
@@ -136,13 +133,13 @@ contract('CrowdsaleManager', function(accounts) {
 
     context("Ether crowdsale", function() {
         var campaign
+        var etherReceiverAddr = accounts[0]
 
         it("Should be possible to start Ether crowdsale campaign by asset-owner", async () => {
             let successCreateCrowdsaleResultCode = await tokenExtension.createCrowdsaleCampaign.call(TOKEN_1, crowdsaleFactoryName, { from: tokenOwner })
-            assert.equal(successCreateCrowdsaleResultCode, ErrorsEnum.OK)
+            assert.equal(successCreateCrowdsaleResultCode.toNumber(), ErrorsEnum.OK)
             let createCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_1, crowdsaleFactoryName, { from: tokenOwner })
             let event = (await eventsHelper.findEvent([tokenExtensionEmitter], createCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
-            console.log("event", event);
             assert.isDefined(event)
 
             let campaignAddress = event.args.campaign.valueOf()
@@ -166,20 +163,19 @@ contract('CrowdsaleManager', function(accounts) {
         })
 
         it("Should be not possible to init Ether to campaign by non-owner", async () => {
-            let failedResultCode = await campaign.init.call("USD", 1000, 1000000, 1, 0, Date.now(), Date.now() + 6000, { from: nonOwner })
-            assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
+            await campaign.init("USD", 1000, 1000000, 1, 0, Date.now(), Date.now() + 6000, { from: nonOwner })
 
             let isRunning = await campaign.isRunning.call()
             assert.isFalse(isRunning)
         })
 
         it("Should be not possible to set `fund` by non-asset-owner", async () => {
-          let failedResultCode = await campaign.enableEtherSale.call(fund, { from: nonOwner })
-          assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
+            let failedResultCode = await campaign.enableEtherSale.call(fund, { from: nonOwner })
+            assert.equal(failedResultCode.toNumber(), ErrorsEnum.UNAUTHORIZED)
 
-          await campaign.enableEtherSale(fund, {from: nonOwner})
-          let fundAddr = campaign.fund.call()
-          assert.equal(fundAddr, 0x0)
+            await campaign.enableEtherSale(fund, { from: nonOwner })
+            let fundAddr = await campaign.fund.call()
+            assert.equal(fundAddr, 0x0)
         })
 
         it("Should be possible to set `fund` by asset-owner", async () => {
@@ -230,9 +226,9 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("Should be possible to send Ether to crowdsale", async () => {
             try {
-                await sendEtherPromise(accounts[0], campaign.address, 10)
-                let balance = await platform.balanceOf.call(accounts[0], TOKEN_1)
-                assert.equal(10, balance)
+                await sendEtherPromise(etherReceiverAddr, campaign.address, 10)
+                let balance = await platform.balanceOf.call(etherReceiverAddr, TOKEN_1)
+                assert.equal(balance.toNumber(), 10)
             } catch (e) {
                 assert.isTrue(false)
             }
@@ -240,10 +236,11 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("Should be possible to send Ether to crowdsale twice", async () => {
             try {
-                await sendEtherPromise(accounts[0], campaign.address, 10)
-                let balance = platform.balanceOf.call(accounts[0], TOKEN_1)
-                assert.equal(20, balance)
+                await sendEtherPromise(etherReceiverAddr, campaign.address, 10)
+                let balance = await platform.balanceOf.call(etherReceiverAddr, TOKEN_1)
+                assert.equal(balance.toNumber(), 20)
             } catch(e) {
+                console.log("thrown error", e);
                 assert.isTrue(false)
             }
         })
@@ -259,7 +256,7 @@ contract('CrowdsaleManager', function(accounts) {
 
         let sendEtherPromise = (from, to, value) => {
             return new Promise(function (resolve, reject) {
-                web3.eth.sendTransaction({from: accounts[0], to: campaign.address, value: 10, gas: 4700000}, (function (e, result) {
+                web3.eth.sendTransaction({from: etherReceiverAddr, to: campaign.address, value: 10, gas: 4700000}, (function (e, result) {
                     if (e != null) {
                         reject(e);
                     } else {

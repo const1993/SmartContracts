@@ -36,10 +36,10 @@ contract('Exchange Manager', function(accounts) {
     context("CRUD interface test", function () {
 
         it("should allow to create new exchange", function () {
-            return Setup.exchangeManager.createExchange.call(SYMBOL, false)
+            return Setup.exchangeManager.createExchange.call(SYMBOL, false, "none")
             .then(function (r) {
                 assert.equal(r, ErrorsEnum.OK);
-                return Setup.exchangeManager.createExchange(SYMBOL, false);
+                return Setup.exchangeManager.createExchange(SYMBOL, false, "none");
             });
         });
 
@@ -66,7 +66,7 @@ contract('Exchange Manager', function(accounts) {
                     from: accounts[0],
                     gas: 3000000
                 }).then(function () {
-                    assert.equal(r, ErrorsEnum.EXCHANGE_STOCK_INVALID_PARAMETER);
+                    assert.equal(r, ErrorsEnum.EXCHANGE_STOCK_ALREADY_EXISTS);
                 });
             });
         });
@@ -96,9 +96,10 @@ contract('Exchange Manager', function(accounts) {
 
     context("Security tests", function () {
 
-        it("should allow to add exchange contract", function () {
-            return Setup.exchangeManager.addExchange.call(exchange.address, {from: owner1}).then(function (r) {
-                return Setup.exchangeManager.addExchange(exchange.address, {from: owner1}).then(function () {
+        it("should allow to add exchange contract by exchange's owners", function () {
+            return Setup.exchangeManager.addExchange.call(exchange.address, {from: owner}).then(function (r) {
+                return Setup.exchangeManager.addExchange(exchange.address, {from: owner}).then(function () {
+                    console.log(r);
                     assert.equal(r, ErrorsEnum.OK);
                 });
             });
@@ -106,7 +107,7 @@ contract('Exchange Manager', function(accounts) {
 
         it("should show acccount[1] as exchange contract owner", function () {
             return Setup.exchangeManager.getExchangeOwners.call(exchange.address).then(function (r) {
-                assert.equal(r[0],owner1);
+                assert.equal(r[0],owner);
             });
         });
 

@@ -4,9 +4,9 @@ import '../core/event/MultiEventsHistoryAdapter.sol';
 
 contract ExchangeManagerEmitter is MultiEventsHistoryAdapter {
     event ExchangeRemoved(address indexed self, address indexed user, address exchange);
-    event ExchangeAdded(address indexed self, address indexed user, address exchange, uint count);
+    event ExchangeAdded(address indexed self, address indexed user, address exchange);
     event ExchangeEdited(address indexed self, address indexed user, address oldExchange, address newExchange);
-    event ExchangeCreated(address indexed self, address indexed user, address exchange, uint count);
+    event ExchangeCreated(address indexed self, address indexed user, address exchange);
     event ExchangeOwnerAdded(address indexed self, address indexed user, address owner, address exchange);
     event ExchangeOwnerRemoved(address indexed self, address indexed user, address owner, address exchange);
     event Error(address indexed self, uint errorCode);
@@ -15,16 +15,16 @@ contract ExchangeManagerEmitter is MultiEventsHistoryAdapter {
         ExchangeRemoved(_self(), user, exchange);
     }
 
-    function emitExchangeAdded(address user, address exchange, uint count) {
-        ExchangeAdded(_self(), user, exchange, count);
+    function emitExchangeAdded(address user, address exchange) {
+        ExchangeAdded(_self(), user, exchange);
     }
 
     function emitExchangeEdited(address user, address oldExchange, address newExchange) {
         ExchangeEdited(_self(), user, oldExchange, newExchange);
     }
 
-    function emitExchangeCreated(address user, address exchange, uint count) {
-        ExchangeCreated(_self(), user, exchange, count);
+    function emitExchangeCreated(address user, address exchange) {
+        ExchangeCreated(_self(), user, exchange);
     }
 
     function emitExchangeOwnerAdded(address user, address owner, address exchange) {

@@ -77,6 +77,7 @@ const errorsLibrary = {
     EXCHANGE_STOCK_INVALID_INVOCATION: errorScope.exchangeStock + 2,
     EXCHANGE_STOCK_ADD_CONTRACT: errorScope.exchangeStock + 3,
     EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE: errorScope.exchangeStock + 4,
+    EXCHANGE_STOCK_ALREADY_EXISTS: errorScope.exchangeStock + 6,
 
     VOTE_INVALID_PARAMETER: errorScope.vote + 0,
     VOTE_INVALID_INVOCATION: errorScope.vote + 1,

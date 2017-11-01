@@ -157,7 +157,7 @@ contract WalletsManager is WalletsManagerEmitter, FeatureFeeAdapter, BaseManager
     returns (uint errorCode)
     {
         require(_owners.length >= _required);
-        
+
         WalletsFactoryInterface factory = WalletsFactoryInterface(store.get(walletsFactory));
         address _wallet = factory.createWallet(_owners, _required, contractsManager, getEventsHistory(), false, _releaseTime);
         if (!MultiEventsHistoryInterface(getEventsHistory()).authorize(_wallet)) {

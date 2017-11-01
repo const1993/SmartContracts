@@ -5,181 +5,169 @@ import "./Exchange.sol";
 import {ERC20ManagerInterface as ERC20Manager} from "../core/erc20/ERC20ManagerInterface.sol";
 import {ERC20Interface as Asset} from "../core/erc20/ERC20Interface.sol";
 import "./ExchangeManagerEmitter.sol";
+import "../assets/AssetsManager.sol";
+import "../core/event/MultiEventsHistory.sol";
 
 
 contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
-  // Exchange Manager errors
     uint constant ERROR_EXCHANGE_STOCK_NOT_FOUND = 7000;
     uint constant ERROR_EXCHANGE_STOCK_INVALID_PARAMETER = 7001;
     uint constant ERROR_EXCHANGE_STOCK_INVALID_INVOCATION = 7002;
     uint constant ERROR_EXCHANGE_STOCK_ADD_CONTRACT = 7003;
     uint constant ERROR_EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE = 7004;
+    uint constant ERROR_EXCHANGE_STOCK_UNKNOWN_SYMBOL = 7005;
+    uint constant ERROR_EXCHANGE_STOCK_EXISTS = 7006;
+    uint constant ERROR_EXCHANGE_STOCK_HAS_ETH_BALANCE = 7008;
+    uint constant ERROR_EXCHANGE_STOCK_HAS_ERC20_BALANCE = 7007;
 
-    address[] public exchanges;
-    mapping (address => address[]) owners;
+    StorageInterface.AddressesSetMapping exchanges;
+    StorageInterface.AddressesSetMapping owners;
 
-    //Exchanges APIs for rate tracking array
-    //string[] public URLs;
-    //mapping(bytes32 => bool) URLexsist;
-
-    modifier onlyExchangeOwner(address _exchange) {
-        if (isExchangeOwner(_exchange, msg.sender)) {
+    modifier onlyExchangeContractOwner(address _exchange) {
+        if (Exchange(_exchange).contractOwner() == msg.sender) {
             _;
         }
     }
 
-    function isExchangeOwner(address _exchange, address _owner) public constant returns (bool) {
-        for (uint i = 0; i < owners[_exchange].length; i++) {
-            if (owners[_exchange][i] == _owner) {return true;}
-        }
-        return false;
-    }
-
     function ExchangeManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
-
+        exchanges.init("ex_m_exchanges");
+        owners.init("ex_m_owners");
     }
 
-    function init(address _contractsManager) onlyContractOwner public returns (uint) {
+    function init(address _contractsManager) public onlyContractOwner returns (uint) {
         BaseManager.init(_contractsManager, "ExchangeManager");
-
         return OK;
     }
 
-    function forward(address _exchange, bytes data) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
-        if (!Exchange(_exchange).call(data)) {
-            revert();
-        }
-
-        errorCode = OK;
+    function isExchangeExists(address exchange) public constant returns (bool) {
+        return store.count(exchanges, bytes32(exchange)) > 0;
     }
 
-    function addExchange(address _exchange) public returns (uint errorCode) {
-        Exchange(_exchange).buyPrice();
-        Exchange(_exchange).sellPrice();
-        if (owners[_exchange].length == 0) {
-            exchanges.push(_exchange);
-            owners[_exchange].push(msg.sender);
-            _emitExchangeAdded(msg.sender, _exchange, exchanges.length);
-            errorCode = OK;
-        } else {
-            errorCode = _emitError(ERROR_EXCHANGE_STOCK_INVALID_PARAMETER);
-        }
+    function getExchangeOwners(address exchange) public constant returns (address []) {
+        return store.get(exchanges, bytes32(exchange));
     }
 
-    function editExchange(address _exchangeOld, address _exchangeNew) onlyExchangeOwner(_exchangeOld) public returns (uint errorCode) {
-        for (uint i = 0; i < exchanges.length; i++) {
-            if (exchanges[i] == _exchangeOld) {
-                exchanges[i] = _exchangeNew;
-                exchanges.length -= 1;
-                _emitExchangeEdited(msg.sender, _exchangeOld, _exchangeNew);
-                return OK;
-            }
-        }
-
-        errorCode = _emitError(ERROR_EXCHANGE_STOCK_NOT_FOUND);
+    function getExchangeForOwner(address owner) public constant returns (address []) {
+        return store.get(owners, bytes32(owner));
     }
 
-    function removeExchange(address _exchange) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
-        for (uint i = 0; i < exchanges.length; i++) {
-            if (exchanges[i] == _exchange) {
-                exchanges[i] = exchanges[exchanges.length - 1];
-                exchanges.length -= 1;
-                break;
-            }
-        }
-        delete owners[_exchange];
-        _emitExchangeRemoved(msg.sender, _exchange);
-        return OK;
-    }
-
-    function createExchange(bytes32 _symbol, bool _useTicker) public returns (uint errorCode) {
+    function createExchange(bytes32 _symbol, bool _useTicker, bytes32 _tickerType)
+    public
+    returns (uint errorCode)
+    {
         address _erc20Manager = lookupManager("ERC20Manager");
-        address tokenAddr = ERC20Manager(_erc20Manager).getTokenAddressBySymbol(_symbol);
-        address rewards = lookupManager("Rewards");
+        address token = ERC20Manager(_erc20Manager).getTokenAddressBySymbol(_symbol);
+        if (token == 0x0) {
+            return _emitError(ERROR_EXCHANGE_STOCK_UNKNOWN_SYMBOL);
+        }
 
-        if (tokenAddr == 0x0 || rewards == 0x0) {
+        address rewards = lookupManager("Rewards");
+        if (rewards == 0x0) {
             return _emitError(ERROR_EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE);
         }
 
-        address exchangeAddr = new Exchange();
-        address tickerAddr;
+        Exchange exchange = new Exchange();
+
+        exchange.init(Asset(token), rewards, 0x0, 10);
+        exchange.setupEventsHistory(getEventsHistory());
+
+        if (!MultiEventsHistory(getEventsHistory()).authorize(exchange)) {
+            revert();
+        }
+
+        if (!exchange.transferContractOwnership(msg.sender)) {
+            revert();
+        }
+
         if (_useTicker) {
-            //address tickerAddr = new KrakenPriceTicker();
+            // TODO: not implemented yet
         }
 
-        Exchange(exchangeAddr).setupEventsHistory(getEventsHistory());
-        Exchange(exchangeAddr).init(Asset(tokenAddr), rewards, tickerAddr, 10);
-        exchanges.push(exchangeAddr);
-        owners[exchangeAddr].push(msg.sender);
+        store.add(exchanges, bytes32(address(exchange)), msg.sender);
+        store.add(owners, bytes32(msg.sender), exchange);
 
-        _emitExchangeCreated(msg.sender, exchangeAddr, exchanges.length);
-        errorCode = OK;
-    }
-
-    function addExchangeOwner(address _exchange, address _owner) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
-        for (uint i = 0; i < owners[_exchange].length; i++) {
-            if (owners[_exchange][i] == _owner) {
-                return _emitError(ERROR_EXCHANGE_STOCK_INVALID_PARAMETER);
-            }
-        }
-        owners[_exchange].push(_owner);
-        _emitExchangeOwnerAdded(msg.sender, _owner, _exchange);
+        _emitExchangeCreated(msg.sender, exchange);
         return OK;
     }
 
-    function removeExchangeOwner(address _exchange, address _owner) onlyExchangeOwner(_exchange) public returns (uint errorCode) {
-        if (_owner == msg.sender) {
-            return _emitError(ERROR_EXCHANGE_STOCK_INVALID_PARAMETER);
+    function addExchange(address _exchange)
+    public
+    onlyExchangeContractOwner(_exchange)
+    returns (uint errorCode)
+    {
+        // no additional checks needed if `onlyExchangeContractOwner` is passed
+
+        if (isExchangeExists(_exchange)) {
+            return _emitError(ERROR_EXCHANGE_STOCK_EXISTS);
         }
 
-        for (uint i = 0; i < owners[_exchange].length; i++) {
-            if (owners[_exchange][i] == _owner) {
-                owners[_exchange][i] = owners[_exchange][owners[_exchange].length - 1];
-                owners[_exchange].length--;
-                _emitExchangeOwnerRemoved(msg.sender, _owner, _exchange);
-                return OK;
-            }
-        }
+        // dirty `instance of` check
+        Exchange(_exchange).buyPrice();
+        Exchange(_exchange).sellPrice();
 
-        errorCode = _emitError(ERROR_EXCHANGE_STOCK_NOT_FOUND);
+        store.add(exchanges, bytes32(_exchange), msg.sender);
+        store.add(owners, bytes32(msg.sender), _exchange);
+
+        _emitExchangeAdded(msg.sender, _exchange);
+        return OK;
     }
 
-    function getExchangeOwners(address _exchange) public constant returns (address[]) {
-        return owners[_exchange];
+    function removeExchange(address _exchange)
+    public
+    onlyExchangeContractOwner(_exchange)
+    returns (uint errorCode)
+    {
+        // no additional checks needed if `onlyExchangeOwner` is passed
+
+        address [] memory exchangeOwners = getExchangeOwners(_exchange);
+        for (uint idx = 0; idx < exchangeOwners.length; idx++) {
+            store.remove(exchanges, bytes32(_exchange), exchangeOwners[idx]);
+            store.remove(owners, bytes32(exchangeOwners[idx]), _exchange);
+
+            _emitExchangeRemoved(exchangeOwners[idx], _exchange);
+        }
+
+        return OK;
     }
 
-    function getExchangesForOwner(address owner) public constant returns (address[]) {
-        uint counter;
-        uint i;
-        for (i = 0; i < exchanges.length; i++) {
-            if (isExchangeOwner(exchanges[i], owner))
-            counter++;
+    function destroyExchange(address _exchange)
+    public
+    onlyExchangeContractOwner(_exchange)
+    returns (uint errorCode)
+    {
+        if (_exchange.balance > 0) {
+            return _emitError(ERROR_EXCHANGE_STOCK_HAS_ETH_BALANCE);
         }
-        address[] memory result = new address[](counter);
-        counter = 0;
-        for (i = 0; i < exchanges.length; i++) {
-            if (isExchangeOwner(exchanges[i], owner)) {
-                result[counter] = exchanges[i];
-                counter++;
-            }
+
+        Asset asset = Exchange(_exchange).asset();
+        if (asset.balanceOf(msg.sender) > 0) {
+            return _emitError(ERROR_EXCHANGE_STOCK_HAS_ERC20_BALANCE);
         }
-        return result;
+
+        errorCode = removeExchange(_exchange);
+        if (OK != errorCode) {
+            return _emitError(errorCode);
+        }
+
+        // TODO: destroy
+
+        return OK;
     }
 
     function _emitExchangeRemoved(address user, address exchange) internal {
         ExchangeManager(getEventsHistory()).emitExchangeRemoved(user, exchange);
     }
 
-    function _emitExchangeAdded(address user, address exchange, uint count) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeAdded(user, exchange, count);
+    function _emitExchangeAdded(address user, address exchange) internal {
+        ExchangeManager(getEventsHistory()).emitExchangeAdded(user, exchange);
     }
 
     function _emitExchangeEdited(address user, address oldExchange, address newExchange) internal {
         ExchangeManager(getEventsHistory()).emitExchangeEdited(user, oldExchange, newExchange);
     }
 
-    function _emitExchangeCreated(address user, address exchange, uint count) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeCreated(user, exchange, count);
+    function _emitExchangeCreated(address user, address exchange) internal {
+        ExchangeManager(getEventsHistory()).emitExchangeCreated(user, exchange);
     }
 
     function _emitExchangeOwnerAdded(address user, address owner, address exchange) internal {
@@ -193,5 +181,9 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     function _emitError(uint error) internal returns (uint) {
         ExchangeManager(getEventsHistory()).emitError(error);
         return error;
+    }
+
+    function lookupAssetMananger() private constant returns (AssetsManager) {
+        return AssetsManager(lookupManager("AssetsManager"));
     }
 }

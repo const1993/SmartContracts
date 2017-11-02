@@ -182,6 +182,14 @@ contract Exchange is Object {
         return OK;
     }
 
+    function ethBalance() public constant returns (uint) {
+        return this.balance;
+    }
+
+    function assetBalance() public constant returns (uint) {
+        return _balanceOf(this);
+    }
+
     /**
      * Returns assigned token address balance.
      *

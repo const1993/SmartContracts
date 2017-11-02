@@ -2,11 +2,12 @@ pragma solidity ^0.4.11;
 
 import "../core/common/BaseManager.sol";
 import "./Exchange.sol";
-import {ERC20ManagerInterface as ERC20Manager} from "../core/erc20/ERC20ManagerInterface.sol";
+import "../core/erc20/ERC20Manager.sol";
 import {ERC20Interface as Asset} from "../core/erc20/ERC20Interface.sol";
 import "./ExchangeManagerEmitter.sol";
 import "../assets/AssetsManager.sol";
 import "../core/event/MultiEventsHistory.sol";
+import "./ExchangeFactory.sol";
 
 
 contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
@@ -20,8 +21,11 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     uint constant ERROR_EXCHANGE_STOCK_HAS_ETH_BALANCE = 7008;
     uint constant ERROR_EXCHANGE_STOCK_HAS_ERC20_BALANCE = 7007;
 
-    StorageInterface.AddressesSetMapping exchanges;
-    StorageInterface.AddressesSetMapping owners;
+    StorageInterface.Address exchangeFactory;
+    StorageInterface.OrderedAddressesSet exchanges; // (exchange [])
+    StorageInterface.AddressesSetMapping owners; // (owner => exchange [])
+    StorageInterface.AddressesSetMapping symbols; // (symbol => exchange [])
+    StorageInterface.Set assetSymbols; // (symbol [])
 
     modifier onlyExchangeContractOwner(address _exchange) {
         if (Exchange(_exchange).contractOwner() == msg.sender) {
@@ -32,31 +36,73 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     function ExchangeManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
         exchanges.init("ex_m_exchanges");
         owners.init("ex_m_owners");
+        symbols.init("ex_m_symbols");
+        assetSymbols.init("ex_m_assetSymbols");
+        exchangeFactory.init("ex_m_exchangeFactory");
     }
 
-    function init(address _contractsManager) public onlyContractOwner returns (uint) {
+    function init(address _contractsManager, address _exchangeFactory) public onlyContractOwner returns (uint) {
         BaseManager.init(_contractsManager, "ExchangeManager");
+        store.set(exchangeFactory, _exchangeFactory);
         return OK;
     }
 
     function isExchangeExists(address exchange) public constant returns (bool) {
-        return store.count(exchanges, bytes32(exchange)) > 0;
+        return store.includes(exchanges, exchange);
     }
 
-    function getExchangeOwners(address exchange) public constant returns (address []) {
-        return store.get(exchanges, bytes32(exchange));
-    }
-
-    function getExchangeForOwner(address owner) public constant returns (address []) {
+    function getExchangesForOwner(address owner) public constant returns (address []) {
         return store.get(owners, bytes32(owner));
     }
 
-    function createExchange(bytes32 _symbol, bool _useTicker, bytes32 _tickerType)
+    function getAssetSymbols() public constant returns (bytes32 []) {
+        return store.get(assetSymbols);
+    }
+
+    function getExchangesForSymbol(bytes32 _symbol) public constant returns (address []) {
+        return store.get(symbols, _symbol);
+    }
+
+    function getExchangeData(address [] _exchanges)
+    external
+    constant
+    returns (address [] exchanges,
+             address [] owners,
+             uint [] buyPrices,
+             uint [] sellPrices,
+             uint [] assetBalances,
+             uint [] ethBalances)
+    {
+        exchanges = new address [] (_exchanges.length);
+        owners = new address [] (_exchanges.length);
+        buyPrices = new uint [] (_exchanges.length);
+        sellPrices = new uint [] (_exchanges.length);
+        assetBalances = new uint [] (_exchanges.length);
+        ethBalances = new uint [] (_exchanges.length);
+
+        for (uint idx = 0; idx < _exchanges.length; idx++) {
+            if (isExchangeExists(_exchanges[idx])) {
+                Exchange exchange = Exchange(_exchanges[idx]);
+
+                exchanges[idx] = address(exchange);
+                owners[idx] = exchange.contractOwner();
+                buyPrices[idx] = exchange.buyPrice();
+                sellPrices[idx] = exchange.sellPrice();
+                assetBalances[idx] = exchange.assetBalance();
+                ethBalances[idx] = exchange.ethBalance();
+            }
+        }
+    }
+
+    function getExchangeFactory() public constant returns (ExchangeFactory) {
+        return ExchangeFactory(store.get(exchangeFactory));
+    }
+
+    function createExchange(bytes32 _symbol, bool _useTicker)
     public
     returns (uint errorCode)
     {
-        address _erc20Manager = lookupManager("ERC20Manager");
-        address token = ERC20Manager(_erc20Manager).getTokenAddressBySymbol(_symbol);
+        address token = lookupERC20Manager().getTokenAddressBySymbol(_symbol);
         if (token == 0x0) {
             return _emitError(ERROR_EXCHANGE_STOCK_UNKNOWN_SYMBOL);
         }
@@ -66,7 +112,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
             return _emitError(ERROR_EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE);
         }
 
-        Exchange exchange = new Exchange();
+        Exchange exchange = getExchangeFactory().createExchange();
 
         exchange.init(Asset(token), rewards, 0x0, 10);
         exchange.setupEventsHistory(getEventsHistory());
@@ -83,8 +129,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
             // TODO: not implemented yet
         }
 
-        store.add(exchanges, bytes32(address(exchange)), msg.sender);
-        store.add(owners, bytes32(msg.sender), exchange);
+        registerExchange(Exchange(exchange));
 
         _emitExchangeCreated(msg.sender, exchange);
         return OK;
@@ -105,8 +150,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         Exchange(_exchange).buyPrice();
         Exchange(_exchange).sellPrice();
 
-        store.add(exchanges, bytes32(_exchange), msg.sender);
-        store.add(owners, bytes32(msg.sender), _exchange);
+        registerExchange(Exchange(_exchange));
 
         _emitExchangeAdded(msg.sender, _exchange);
         return OK;
@@ -118,15 +162,9 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     returns (uint errorCode)
     {
         // no additional checks needed if `onlyExchangeOwner` is passed
+        unregisterExchange(Exchange(_exchange));
 
-        address [] memory exchangeOwners = getExchangeOwners(_exchange);
-        for (uint idx = 0; idx < exchangeOwners.length; idx++) {
-            store.remove(exchanges, bytes32(_exchange), exchangeOwners[idx]);
-            store.remove(owners, bytes32(exchangeOwners[idx]), _exchange);
-
-            _emitExchangeRemoved(exchangeOwners[idx], _exchange);
-        }
-
+        _emitExchangeRemoved(msg.sender, _exchange);
         return OK;
     }
 
@@ -185,5 +223,39 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
 
     function lookupAssetMananger() private constant returns (AssetsManager) {
         return AssetsManager(lookupManager("AssetsManager"));
+    }
+
+    function lookupERC20Manager() private constant returns (ERC20Manager) {
+        return ERC20Manager(lookupManager("ERC20Manager"));
+    }
+
+    function registerExchange(Exchange exchange) private {
+        address owner = exchange.contractOwner();
+
+        store.add(exchanges, address(exchange));
+        store.add(owners, bytes32(owner), address(exchange));
+
+        bytes32 smb = getSymbol(address(exchange.asset()));
+        store.add(symbols, smb, address(exchange));
+        store.add(assetSymbols, smb);
+    }
+
+    function unregisterExchange(Exchange exchange) private {
+        address owner = exchange.contractOwner();
+        store.remove(exchanges, exchange);
+        store.remove(owners, bytes32(owner), exchange);
+
+        bytes32 symbol = getSymbol(address(exchange.asset()));
+
+        if (store.count(assetSymbols) == 1) {
+            store.remove(assetSymbols, symbol);
+        }
+        store.remove(symbols, symbol, address(exchange));
+    }
+
+    function getSymbol(address token) internal constant returns (bytes32) {
+        var (tokenAddress, name, symbol, url, decimals, ipfsHash, swarmHash)
+                = lookupERC20Manager().getTokenMetaData(token);
+        return symbol;
     }
 }

@@ -5,6 +5,7 @@ const Setup = require('../setup/setup')
 const Reverter = require('./helpers/reverter')
 const bytes32 = require('./helpers/bytes32')
 const ErrorsEnum = require("../common/errors")
+const eventsHelper = require('./helpers/eventsHelper')
 
 contract('Exchange Manager', function(accounts) {
     const owner = accounts[0]
@@ -19,15 +20,16 @@ contract('Exchange Manager', function(accounts) {
     let coin2
     let exchange
 
-
     before('setup', function (done) {
         FakeCoin.deployed().then(function(instance) {
             coin = instance
             return FakeCoin2.deployed()
-        }).then(function(instance) {
+        })
+        .then(function(instance) {
             coin2 = instance
             return Exchange.new()
-        }).then(function(instance) {
+        })
+        .then(function(instance) {
             exchange = instance
             Setup.setup(done)
         })
@@ -36,11 +38,31 @@ contract('Exchange Manager', function(accounts) {
     context("CRUD interface test", function () {
 
         it("should allow to create new exchange", function () {
-            return Setup.exchangeManager.createExchange.call(SYMBOL, false, "none")
+            let exchange;
+            return Setup.exchangeManager.createExchange.call(SYMBOL, false)
             .then(function (r) {
                 assert.equal(r, ErrorsEnum.OK);
-                return Setup.exchangeManager.createExchange(SYMBOL, false, "none");
-            });
+                return Setup.exchangeManager.createExchange(SYMBOL, false);
+            })
+            .then(tx => eventsHelper.extractEvents(tx, "ExchangeCreated"))
+            .then(events => exchange = events[0].args.exchange)
+            .then(() => Setup.exchangeManager.isExchangeExists.call(exchange))
+            .then(r => assert.isTrue(r))
+            .then(() => Setup.exchangeManager.getAssetSymbols.call())
+            .then(symbols => {
+                    assert.equal(symbols.length, 1);
+                    assert.equal(symbols[0], bytes32(SYMBOL));
+            })
+            .then(() => Setup.exchangeManager.getExchangesForOwner.call(owner))
+            .then(exchanges => {
+                assert.equal(exchanges.length, 1);
+                assert.equal(exchanges[0], exchange);
+            })
+            .then(() => Setup.exchangeManager.getExchangesForSymbol.call(SYMBOL))
+            .then(exchanges => {
+                assert.equal(exchanges.length, 1);
+                assert.equal(exchanges[0], exchange);
+            })
         });
 
         it("should allow to add exchange contract", function () {

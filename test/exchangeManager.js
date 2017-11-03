@@ -39,10 +39,10 @@ contract('Exchange Manager', function(accounts) {
 
         it("should allow to create new exchange", function () {
             let exchange;
-            return Setup.exchangeManager.createExchange.call(SYMBOL, false)
+            return Setup.exchangeManager.createExchange.call(SYMBOL, false, 1, 2)
             .then(function (r) {
                 assert.equal(r, ErrorsEnum.OK);
-                return Setup.exchangeManager.createExchange(SYMBOL, false);
+                return Setup.exchangeManager.createExchange(SYMBOL, false, 1, 2);
             })
             .then(tx => eventsHelper.extractEvents(tx, "ExchangeCreated"))
             .then(events => exchange = events[0].args.exchange)

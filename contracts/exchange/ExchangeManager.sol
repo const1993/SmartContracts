@@ -89,7 +89,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
                 buyPrices[idx] = exchange.buyPrice();
                 sellPrices[idx] = exchange.sellPrice();
                 assetBalances[idx] = exchange.assetBalance();
-                ethBalances[idx] = exchange.ethBalance();
+                ethBalances[idx] = exchange.etherBalance();
             }
         }
     }
@@ -98,7 +98,11 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return ExchangeFactory(store.get(exchangeFactory));
     }
 
-    function createExchange(bytes32 _symbol, bool _useTicker)
+    function createExchange(
+        bytes32 _symbol,
+        bool _useTicker,
+        uint _sellPrice,
+        uint _buyPrice)
     public
     returns (uint errorCode)
     {
@@ -112,14 +116,18 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
             return _emitError(ERROR_EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE);
         }
 
+        uint fee = 10; // TODO
+
         Exchange exchange = getExchangeFactory().createExchange();
 
-        exchange.init(Asset(token), rewards, 0x0, 10);
+
         exchange.setupEventsHistory(getEventsHistory());
 
         if (!MultiEventsHistory(getEventsHistory()).authorize(exchange)) {
             revert();
         }
+
+        exchange.init(Asset(token), rewards, fee, _buyPrice, _sellPrice);
 
         if (!exchange.transferContractOwnership(msg.sender)) {
             revert();

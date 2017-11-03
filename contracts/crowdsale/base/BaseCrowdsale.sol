@@ -9,8 +9,8 @@ import "../../core/platform/ChronoBankAssetProxyInterface.sol";
 import "../../core/platform/ChronoBankPlatformInterface.sol";
 
 contract Bounty {
-    function isAssetSymbolExists(bytes32 _symbol) constant returns (bool);
-    function isAssetOwner(bytes32 _symbol, address _owner) constant returns (bool);
+    function isAssetSymbolExists(bytes32 _symbol) public constant returns (bool);
+    function isAssetOwner(bytes32 _symbol, address _owner) public constant returns (bool);
 }
 
 
@@ -52,7 +52,7 @@ contract BaseCrowdsale is Object {
     }
 
     /** @dev Access rights checks */
-    modifier onlyAuthorised() {
+    modifier onlyAuthorised {
         if (lookupBounty().isAssetOwner(symbol, msg.sender)) _;
     }
 
@@ -62,7 +62,7 @@ contract BaseCrowdsale is Object {
     *  @param _symbol Bounty token symbol
     *  @notice this contract should be owner of bounty token
     */
-    function BaseCrowdsale(address _serviceProvider, bytes32 _symbol) {
+    function BaseCrowdsale(address _serviceProvider, bytes32 _symbol) public {
         require(_serviceProvider != 0x0);
         require(_symbol != 0x0);
 
@@ -77,21 +77,21 @@ contract BaseCrowdsale is Object {
     /**
     *  Returns token's symbol;
     */
-    function getSymbol() constant returns (bytes32) {
+    function getSymbol() public constant returns (bytes32) {
         return symbol;
     }
 
     /**
     *  How many tokens are sold.
     */
-    function getTokensSold() constant returns (uint) {
+    function getTokensSold() public constant returns (uint) {
         return tokensSold;
     }
 
     /**
     *  Destroy the Crowdsale contract. Throws if the Crowdsale is not ended yet.
     */
-    function destroy() onlyContractOwner {
+    function destroy() public onlyContractOwner {
         if (!hasEnded()) revert();
 
         Owned.destroy();
@@ -101,11 +101,11 @@ contract BaseCrowdsale is Object {
     *  It is just a base constact which is designed to be inherited.
     *  Implement payable function in dereved if necessary
     */
-    function () payable onlyRunning {
+    function () payable onlyRunning public {
         revert();
     }
 
-    function hasEnded() constant returns (bool) {
+    function hasEnded() public constant returns (bool) {
         // withdraw() before destroy
         if (isSuccessed() && this.balance > 0) return false;
 
@@ -124,7 +124,7 @@ contract BaseCrowdsale is Object {
     *
     *  @return true if the Crowdsale is running
     */
-    function isRunning() constant returns (bool);
+    function isRunning() public constant returns (bool);
 
     /**
     *  Tells whether or not the Crowdsale is failed
@@ -132,7 +132,7 @@ contract BaseCrowdsale is Object {
     *
     *  @return true if the Crowdsale is failed
     */
-    function isFailed() constant returns (bool);
+    function isFailed() public constant returns (bool);
 
     /**
     *  Tells whether or not the Crowdsale is successed.
@@ -140,7 +140,7 @@ contract BaseCrowdsale is Object {
     *
     *  @return true if the Crowdsale is successed
     */
-    function isSuccessed() constant returns (bool);
+    function isSuccessed() public constant returns (bool);
 
     /**
     *  This function mints the tokens and moves the crowdsale needle.
@@ -174,11 +174,11 @@ contract BaseCrowdsale is Object {
         WithdrawToken(address(this), holder, 0);
     }
 
-    function lookupBounty() constant returns (Bounty) {
+    function lookupBounty() public constant returns (Bounty) {
         return Bounty(lookupService("AssetsManager"));
     }
 
-    function lookupService(bytes32 _identifier) constant returns (address manager) {
+    function lookupService(bytes32 _identifier) public constant returns (address manager) {
         manager = ContractsManagerInterface(serviceProvider).getContractAddressByType(_identifier);
         require(manager != 0x0);
     }

@@ -34,7 +34,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     /**
     *  Check if Ether sale is enabled.
     */
-    modifier isEtherSale() {
+    modifier isEtherSale {
         if (fund == 0x0) revert();
         _;
     }
@@ -191,8 +191,7 @@ contract ChronoMintCrowdsale is GenericCrowdsale {
     *   Returns token symbol by given address.
     */
     function getTokenSymbol(address _token) public constant returns (bytes32) {
-        var (,, symbol,,,,) =
-              lookupERC20Service().getTokenMetaData(_token);
+        var (,,symbol,,,,) = lookupERC20Service().getTokenMetaData(_token);
         return symbol;
     }
 }

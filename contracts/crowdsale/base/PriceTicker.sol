@@ -1,17 +1,12 @@
 pragma solidity ^0.4.11;
 
-contract PriceTickerCallback {
-    function receivePrice(bytes32 queryId, uint rate, uint decimals);
-}
-
 /**
-*  PriceTicker Interface.
+*  PriceFetcher Interface. Defines how a price could be fetched
 */
-contract PriceTicker {
+contract PriceFetcher {
     uint constant OK = 1;
-    uint constant PRICE_TICKER_OK_UPDATING = 2;
-    uint constant PRICE_TICKER_INSUFFICIENT_BALANCE = 3;
-    uint constant PRICE_TICKER_INVALID_INVOCATION = 4;
+
+    event ExchangePriceUpdated(address initiator, bytes32 indexed fsym, bytes32 indexed tsym, uint indexed updateTime, uint exchangePrice, uint rateDecimals);
 
     /**
     *  Check if the price of a `fsym` currency against 'tsym' currency is availbale.
@@ -25,7 +20,7 @@ contract PriceTicker {
     *
     *  @return true if the price is an available.
     */
-    function isPriceAvailable(bytes32 fsym, bytes32 tsym) constant returns (bool);
+    function isPriceAvailable(bytes32 fsym, bytes32 tsym) public constant returns (bool);
 
     /**
     *  Get the price of a `fsym` currency against 'tsym' currency.
@@ -41,7 +36,17 @@ contract PriceTicker {
     *
     *  @return a price and its decimals
     */
-    function price(bytes32 fsym, bytes32 tsym) constant returns (uint, uint);
+    function price(bytes32 fsym, bytes32 tsym) public constant returns (uint, uint);
+}
+
+
+/**
+*  PriceTicker Interface.
+*/
+contract PriceTicker is PriceFetcher {
+    uint constant PRICE_TICKER_OK_UPDATING = 2;
+    uint constant PRICE_TICKER_INSUFFICIENT_BALANCE = 3;
+    uint constant PRICE_TICKER_INVALID_INVOCATION = 4;
 
     /**
     *  Request asynchronously the price of a `fsym` currency against 'tsym' currency.
@@ -59,5 +64,5 @@ contract PriceTicker {
     *
     *  @return oraclize query id
     */
-    function requestPrice(bytes32 fsym, bytes32 tsym) payable returns (bytes32, uint);
+    function requestPrice(bytes32 fsym, bytes32 tsym) public payable returns (bytes32, uint);
 }

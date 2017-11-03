@@ -15,7 +15,7 @@ import "../core/common/BaseManager.sol";
 contract CrowdsaleFactory is BaseManager {
     StorageInterface.Address priceTicker;
 
-    modifier onlyCrowdsaleManager() {
+    modifier onlyCrowdsaleManager {
         if (msg.sender == lookupManager("CrowdsaleManager")) {
             _;
         }

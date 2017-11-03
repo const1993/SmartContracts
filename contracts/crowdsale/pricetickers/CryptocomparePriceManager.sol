@@ -5,21 +5,21 @@ import "../base/PriceTicker.sol";
 import "oraclize/usingOraclize.sol";
 import "../../core/lib/StringsLib.sol";
 
+
 /**
 *  @title CryptoCompare Price Ticker
 */
-contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
+contract CryptocomparePriceManager is PriceTicker, usingOraclize, Object {
     uint constant EXCHANGE_RATE_DECIMALS = 18;
-    uint constant TTL = 60000;
 
     struct ExchangePrice {
         uint rate;
-        uint expiry;
     }
 
     struct Query {
         address sender;
-        bytes32 hash;
+        bytes32 fsym;
+        bytes32 tsym;
     }
 
     /* bytes32(from, to) -> price * 10**EXCHANGE_RATE_DECIMALS */
@@ -41,8 +41,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
     function isPriceAvailable(bytes32 _fsym, bytes32 _tsym) public constant returns (bool) {
         if (isEquivalentSymbol(_fsym, _tsym)) return true;
 
-        ExchangePrice memory exchangePrice = exchangePrices[sha3(_fsym, _tsym)];
-        return exchangePrice.expiry < now;
+        return exchangePrices[keccak256(_fsym, _tsym)].rate != 0;
     }
 
     /**
@@ -51,8 +50,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
     function price(bytes32 _fsym, bytes32 _tsym) public constant returns (uint, uint) {
         if (isEquivalentSymbol(_fsym, _tsym)) return (1, 0);
 
-        ExchangePrice memory exchangePrice = exchangePrices[sha3(_fsym, _tsym)];
-        return (exchangePrice.rate, EXCHANGE_RATE_DECIMALS);
+        return (exchangePrices[keccak256(_fsym, _tsym)].rate, EXCHANGE_RATE_DECIMALS);
     }
 
     /**
@@ -84,17 +82,18 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
         Query memory query = queries[_queryId];
 
         // invalid query, nothing to do
-        if (query.sender == 0x0 || query.hash == 0x0) revert();
+        if (query.sender == 0x0) revert();
 
         uint exchangePrice = parseInt(_result, EXCHANGE_RATE_DECIMALS);
         assert(exchangePrice > 0);
 
         if (exchangePrice != 0) {
-            exchangePrices[query.hash] = ExchangePrice(exchangePrice, now + TTL);
+            exchangePrices[keccak256(query.fsym, query.tsym)] = ExchangePrice(exchangePrice);
         }
 
         delete queries[_queryId];
-        PriceTickerCallback(query.sender).receivePrice(_queryId, exchangePrice, EXCHANGE_RATE_DECIMALS);
+
+        ExchangePriceUpdated(query.sender, query.fsym, query.tsym, now, exchangePrice, EXCHANGE_RATE_DECIMALS);
     }
 
     /**
@@ -110,7 +109,7 @@ contract CryptocomparePriceTicker is PriceTicker, usingOraclize, Object {
 
         string memory query = buildQuery(_fsym, _tsym, _tsym);
         bytes32 queryId = oraclize_query("URL", query);
-        queries[queryId] = Query(_sender, sha3(_fsym, _tsym));
+        queries[queryId] = Query(_sender, _fsym, _tsym);
 
         return (queryId, PRICE_TICKER_OK_UPDATING);
     }

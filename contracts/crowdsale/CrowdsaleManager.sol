@@ -22,7 +22,7 @@ contract CrowdsaleManager is CrowdsaleManagerEmitter, BaseManager {
 
     StorageInterface.AddressesSet campaigns;
 
-    modifier onlyAssetAuthorizedContract() {
+    modifier onlyAssetAuthorizedContract {
         if (TokenExtensionRegistry(lookupManager("AssetsManager")).containsTokenExtension(msg.sender)) {
             _;
         }

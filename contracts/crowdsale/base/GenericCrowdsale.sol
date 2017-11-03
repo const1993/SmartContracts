@@ -18,7 +18,7 @@ import "./PriceTicker.sol";
 *  through multiple Sale Agents. Once a new Sale Agent contract is written,
 *  it can be permitted to sell tokens.
 */
-contract GenericCrowdsale is BaseCrowdsale , PriceTickerCallback, Once {
+contract GenericCrowdsale is BaseCrowdsale, Once {
     /* Data structure to hold information about campaign contributors
     `what is donated` => (`who donated` => `how much is donated`) */
     mapping (bytes32 => mapping(address => uint)) public donations;
@@ -27,10 +27,7 @@ contract GenericCrowdsale is BaseCrowdsale , PriceTickerCallback, Once {
     /* Contract addresses that are authorised to mint tokens */
     mapping (bytes32 => address) public salesAgents;
     /* Contract addresse that provides exchange rates */
-    PriceTicker private priceTicker;
-
-    struct PriceQuery{address investor; bytes32 currencyCode; uint value;}
-    mapping (bytes32 => PriceQuery) private priceQueries;
+    PriceFetcher private priceTicker;
 
     /* For example, USD, from 10k to 30k, 50000 wei / 1 Token */
     struct Goal {
@@ -49,9 +46,7 @@ contract GenericCrowdsale is BaseCrowdsale , PriceTickerCallback, Once {
 
     event NewSaleDone(address indexed sender, address investor, uint value, bytes32 currencyCode);
     event NewRefund(address indexed sender, address investor, uint value, bytes32 currencyCode);
-
-    event PriceRequested(address indexed sender, address investor, uint value, bytes32 currencyCode, bytes32 query);
-    event PriceRequestFailed(address indexed sender, address investor, uint value, bytes32 currencyCode, bytes32 query);
+    event SaleCurrencyNoPriceFound(address indexed sender, address investor, uint value, bytes32 fsym, bytes32 tsym);
 
     /* Permitted only for sale agent */
     modifier onlySaleAgent(bytes32 currencyId) {
@@ -59,27 +54,22 @@ contract GenericCrowdsale is BaseCrowdsale , PriceTickerCallback, Once {
         _;
     }
 
-    /* Permitted only for Price Ticker */
-    modifier onlyPriceTicker() {
-        if (msg.sender != address(priceTicker)) revert();
-        _;
-    }
-
     /**
     *  Constructor
     */
-    function GenericCrowdsale (address _serviceProvider, bytes32 _symbol, address _priceTicker)
-                BaseCrowdsale(_serviceProvider, _symbol)
+    function GenericCrowdsale(address _serviceProvider, bytes32 _symbol, address _priceTicker)
+        BaseCrowdsale(_serviceProvider, _symbol)
+        public
     {
         require(_priceTicker != 0x0);
-        priceTicker = PriceTicker(_priceTicker);
+        priceTicker = PriceFetcher(_priceTicker);
     }
 
     /**
     *  Inits crowdsale. Sets a goal.
     *
     *  If the funding goal is not reached, investors may withdraw their funds.
-    *  PriceTicker should support given currency.
+    *  PriceFetcher should support given currency.
     */
     function init(
         bytes32 _currencyCode,
@@ -104,14 +94,14 @@ contract GenericCrowdsale is BaseCrowdsale , PriceTickerCallback, Once {
     *  This function mints the tokens and moves the crowdsale needle.
     *
     *  Amount of minted tokens is calculated according to a price
-    *  provided by PriceTicker, and an exchangeRate given during initialization.
+    *  provided by PriceFetcher, and an exchangeRate given during initialization.
     *
     *  This function is permited only for Sale Agent and can be executed only
     *  when crawdsale is running.
     *
     *  Sale Agent must send some wei, because of price fetching is not free.
     */
-    function sale(address _investor, uint _value, bytes32 _currencyCode) onlySaleAgent(_currencyCode) onlyRunning payable {
+    function sale(address _investor, uint _value, bytes32 _currencyCode) onlySaleAgent(_currencyCode) onlyRunning payable public {
         require(_investor != 0x0);
         require(_currencyCode != 0x0);
 
@@ -124,93 +114,73 @@ contract GenericCrowdsale is BaseCrowdsale , PriceTickerCallback, Once {
 
             NewSaleDone(msg.sender, _investor, _value, _currencyCode);
         } else {
-            var (priceQueryId, resultCode) = priceTicker.requestPrice(_currencyCode, goal.currencyCode);
-            assert(resultCode == OK);
-            priceQueries[priceQueryId] = PriceQuery(_investor, _currencyCode, _value);
-
-            PriceRequested(msg.sender, _investor, _value, _currencyCode, priceQueryId);
+            SaleCurrencyNoPriceFound(msg.sender, _investor, _value, _currencyCode, goal.currencyCode);
         }
     }
 
     /**
     *  Refunds donated fund.
     */
-    function refund(address _investor, bytes32 _currencyCode) onlySaleAgent(_currencyCode) onlyFailure returns (uint) {
+    function refund(address _investor, bytes32 _currencyCode) onlySaleAgent(_currencyCode) onlyFailure public returns (uint) {
         uint donation = donations[_currencyCode][_investor];
         forceRefund(_investor, _currencyCode, donation);
         return donation;
     }
 
     /**
-    *  Only PriceTicker is permited to execute this function.
+    *  Setter for PriceFetcher
     */
-    function receivePrice(bytes32 queryId, uint price, uint decimals) onlyPriceTicker {
-        PriceQuery memory query = priceQueries[queryId];
-        require(query.investor != 0x0);
-
-        if (price > 0) {
-            mint(query.investor, query.value, price, decimals);
-            NewSaleDone(msg.sender, query.investor, query.value, query.currencyCode);
-        } else {
-            PriceRequestFailed(msg.sender, query.investor, query.value, query.currencyCode, queryId);
-            forceRefund(query.investor, query.currencyCode, query.value);
-        }
-    }
-
-    /**
-    *  Setter for PriceTicker
-    */
-    function setPriceTicker(address _priceTicker) onlyAuthorised {
+    function setPriceTicker(address _priceTicker) onlyAuthorised public {
         require(_priceTicker != 0x0);
-        priceTicker = PriceTicker(_priceTicker);
+        priceTicker = PriceFetcher(_priceTicker);
     }
 
     /**
     *  Allow SaleAgent to sale tokens.
     */
-    function addSalesAgent(address _salesAgent, bytes32 _currencyCode) onlyAuthorised {
+    function addSalesAgent(address _salesAgent, bytes32 _currencyCode) onlyAuthorised public {
         registerSalesAgent(_salesAgent, _currencyCode);
     }
 
     /**
     *  Deny SaleAgent to sale tokens.
     */
-    function removeSalesAgent(address _salesAgent, bytes32 _currencyCode) onlyAuthorised {
+    function removeSalesAgent(address _salesAgent, bytes32 _currencyCode) onlyAuthorised public {
         unregisterSalesAgent(_salesAgent, _currencyCode);
     }
 
     /**
     *  Returns priceTicker address.
     */
-    function getPriceTicker() constant returns (address) {
+    function getPriceTicker() public constant returns (address) {
         return address(priceTicker);
     }
 
     /**
     *  Returns salesAgent by given `_symbol`.
     */
-    function getSalesAgent(bytes32 _symbol) constant returns (address) {
+    function getSalesAgent(bytes32 _symbol) public constant returns (address) {
         return salesAgents[_symbol];
     }
 
     /**
     *  Returns Crowdsale goal.
     */
-    function getGoal() constant returns (bytes32, uint, uint, uint, uint) {
+    function getGoal() public constant returns (bytes32, uint, uint, uint, uint) {
         return (goal.currencyCode, goal.minValue, goal.maxValue, goal.exchangeRate, goal.exchangeRateDecimals);
     }
 
     /**
     *  See BaseCrowdsale
     */
-    function isRunning() constant returns (bool) {
+    function isRunning() public constant returns (bool) {
         return goalRaised < goal.maxValue;
     }
 
     /**
     *  See BaseCrowdsale
     */
-    function isSuccessed() constant returns (bool) {
+    function isSuccessed() public constant returns (bool) {
         return goalRaised > goal.minValue;
     }
 

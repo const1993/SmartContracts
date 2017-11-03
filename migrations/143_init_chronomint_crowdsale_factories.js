@@ -3,7 +3,7 @@ const BlockLimitedCrowdsaleFactory = artifacts.require("./BlockLimitedCrowdsaleF
 const Storage = artifacts.require('./Storage.sol');
 const StorageManager = artifacts.require("./StorageManager.sol");
 const ContractsManager = artifacts.require("./ContractsManager.sol");
-const CryptocomparePriceTicker = artifacts.require("./CryptocomparePriceTicker.sol");
+const CryptocomparePriceManager = artifacts.require("./CryptocomparePriceManager.sol");
 
 module.exports = function (deployer, network) {
     deployer
@@ -13,12 +13,12 @@ module.exports = function (deployer, network) {
     .then(() => storageManager.giveAccess(TimeLimitedCrowdsaleFactory.address, 'TimeLimitedCrowdsaleFactory'))
     .then(() => TimeLimitedCrowdsaleFactory.deployed())
     .then(_crowdsaleFactory => crowdsaleFactory = _crowdsaleFactory)
-    .then(() => crowdsaleFactory.init(ContractsManager.address, CryptocomparePriceTicker.address))
+    .then(() => crowdsaleFactory.init(ContractsManager.address, CryptocomparePriceManager.address))
 
     .then(() => storageManager.giveAccess(BlockLimitedCrowdsaleFactory.address, 'BlockLimitedCrowdsaleFactory'))
     .then(() => BlockLimitedCrowdsaleFactory.deployed())
     .then(_crowdsaleFactory => crowdsaleFactory = _crowdsaleFactory)
-    .then(() => crowdsaleFactory.init(ContractsManager.address, CryptocomparePriceTicker.address))
+    .then(() => crowdsaleFactory.init(ContractsManager.address, CryptocomparePriceManager.address))
 
     .then(() => console.log("[MIGRATION] [" + parseInt(require("path").basename(__filename)) + "] Crowdsale factories init: #done"))
 }

@@ -13,7 +13,6 @@ contract FakePriceTicker is PriceTicker {
     }
 
     function requestPrice(bytes32 fsym, bytes32 tsym) payable returns (bytes32, uint) {
-
-        PriceTickerCallback(msg.sender).receivePrice(sha3(block.number, now), 10, 1);
+        ExchangePriceUpdated(msg.sender, fsym, tsym, now, 10, 1);
     }
 }

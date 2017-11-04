@@ -1,6 +1,6 @@
 pragma solidity ^0.4.11;
 
-import "../base/ChronoMintCrowdsale.sol";
+import "../base/ChronoMintUniversalCrowdsale.sol";
 
 /**
  * @title BlockLimitedCrowdsale is a crowdsale contract.
@@ -9,9 +9,9 @@ import "../base/ChronoMintCrowdsale.sol";
  * where investors can make token purchases and
  * the crowdsale will assign them tokens based on a token per exchange rate.
  *
- * See ChronoMintCrowdsale.
+ * See ChronoMintUniversalCrowdsale.
  */
-contract BlockLimitedCrowdsale is ChronoMintCrowdsale {
+contract BlockLimitedCrowdsale is ChronoMintUniversalCrowdsale {
     /* Block limited crowdfunding configuration */
     struct Params {
         uint256 startBlock;
@@ -21,7 +21,7 @@ contract BlockLimitedCrowdsale is ChronoMintCrowdsale {
     Params public config;
 
     function BlockLimitedCrowdsale(address _serviceProvider, bytes32 _symbol, address _priceTicker)
-        ChronoMintCrowdsale(_serviceProvider, _symbol, _priceTicker)
+        ChronoMintUniversalCrowdsale(_serviceProvider, _symbol, _priceTicker)
         public
     {
     }

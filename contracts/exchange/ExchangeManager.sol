@@ -144,7 +144,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
 
         registerExchange(Exchange(exchange));
 
-        _emitExchangeCreated(msg.sender, exchange);
+        _emitExchangeCreated(msg.sender, exchange, _symbol, rewards, fee, _buyPrice, _sellPrice);
         return OK;
     }
 
@@ -217,15 +217,26 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     function _emitExchangeRemoved(address exchange) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeRemoved(exchange);
+        Asset asset = Exchange(exchange).asset();
+        ExchangeManager(getEventsHistory()).emitExchangeRemoved(exchange, getSymbol(address(asset)));
     }
 
     function _emitExchangeAdded(address user, address exchange) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeAdded(user, exchange);
+        Asset asset = Exchange(exchange).asset();
+        ExchangeManager(getEventsHistory()).emitExchangeAdded(user, exchange, getSymbol(address(asset)));
     }
 
-    function _emitExchangeCreated(address user, address exchange) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeCreated(user, exchange);
+    function _emitExchangeCreated(
+        address user,
+        address exchange,
+        bytes32 symbol,
+        address rewards,
+        uint fee,
+        uint buyPrice,
+        uint sellPrice)
+    internal
+    {
+        ExchangeManager(getEventsHistory()).emitExchangeCreated(user, exchange, symbol, rewards, fee, buyPrice, sellPrice);
     }
 
     function _emitError(uint error) internal returns (uint) {

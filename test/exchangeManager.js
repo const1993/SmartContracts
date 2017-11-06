@@ -1,4 +1,5 @@
 const FakeCoin = artifacts.require("./FakeCoin.sol")
+const ContractsManager = artifacts.require("./ContractsManager.sol")
 const FakeCoin2 = artifacts.require("./FakeCoin2.sol")
 const Exchange = artifacts.require("./Exchange.sol")
 const Setup = require('../setup/setup')
@@ -48,17 +49,7 @@ contract('Exchange Manager', function(accounts) {
             .then(events => exchange = events[0].args.exchange)
             .then(() => Setup.exchangeManager.isExchangeExists.call(exchange))
             .then(r => assert.isTrue(r))
-            .then(() => Setup.exchangeManager.getAssetSymbols.call())
-            .then(symbols => {
-                    assert.equal(symbols.length, 1);
-                    assert.equal(symbols[0], bytes32(SYMBOL));
-            })
             .then(() => Setup.exchangeManager.getExchangesForOwner.call(owner))
-            .then(exchanges => {
-                assert.equal(exchanges.length, 1);
-                assert.equal(exchanges[0], exchange);
-            })
-            .then(() => Setup.exchangeManager.getExchangesForSymbol.call(SYMBOL))
             .then(exchanges => {
                 assert.equal(exchanges.length, 1);
                 assert.equal(exchanges[0], exchange);

@@ -129,7 +129,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
             revert();
         }
 
-        exchange.init(Asset(token), rewards, fee, _buyPrice, _sellPrice);
+        exchange.init(contractsManager, Asset(token), rewards, fee, _buyPrice, _sellPrice);
 
         if (!exchange.transferContractOwnership(msg.sender)) {
             revert();
@@ -183,30 +183,6 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         _emitExchangeRemoved(msg.sender);
         return OK;
     }
-
-    /*function destroyExchange(address _exchange)
-    public
-    onlyExchangeContractOwner(_exchange)
-    returns (uint errorCode)
-    {
-        if (_exchange.balance > 0) {
-            return _emitError(ERROR_EXCHANGE_STOCK_HAS_ETH_BALANCE);
-        }
-
-        Asset asset = Exchange(_exchange).asset();
-        if (asset.balanceOf(msg.sender) > 0) {
-            return _emitError(ERROR_EXCHANGE_STOCK_HAS_ERC20_BALANCE);
-        }
-
-        errorCode = removeExchange(_exchange);
-        if (OK != errorCode) {
-            return _emitError(errorCode);
-        }
-
-        // TODO: destroy
-
-        return OK;
-    }*/
 
     function lookupAssetMananger() private constant returns (AssetsManager) {
         return AssetsManager(lookupManager("AssetsManager"));

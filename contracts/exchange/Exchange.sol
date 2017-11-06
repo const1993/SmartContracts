@@ -3,6 +3,7 @@ pragma solidity ^0.4.11;
 import "../core/common/Object.sol";
 import "../core/lib/SafeMath.sol";
 import {ERC20Interface as Asset} from "../core/erc20/ERC20Interface.sol";
+import "../core/contracts/ContractsManager.sol";
 
 contract ExchangeEmitter {
     function emitError(uint errorCode) public returns (uint);
@@ -14,6 +15,10 @@ contract ExchangeEmitter {
     function emitWithdrawEther(address recipient, uint amount, address by) public;
     function emitWithdrawTokens(address recipient, uint amount, address by) public;
     function emitReceivedEther(address sender, uint amount) public;
+}
+
+contract IExchangeManager {
+    function removeExchange() public returns (uint errorCode);
 }
 
 /**
@@ -32,16 +37,13 @@ contract ExchangeEmitter {
 contract Exchange is Object {
     using SafeMath for uint;
     uint constant ERROR_EXCHANGE_INVALID_INVOCATION = 6001;
-    uint constant ERROR_EXCHANGE_INVALID_FEE_PERCENT = 6002;
-    uint constant ERROR_EXCHANGE_INVALID_PRICE = 6003;
-    uint constant ERROR_EXCHANGE_MAINTENANCE_MODE = 6004;
-    uint constant ERROR_EXCHANGE_TOO_HIGH_PRICE = 6005;
-    uint constant ERROR_EXCHANGE_TOO_LOW_PRICE = 6006;
-    uint constant ERROR_EXCHANGE_INSUFFICIENT_BALANCE = 6007;
-    uint constant ERROR_EXCHANGE_INSUFFICIENT_ETHER_SUPPLY = 6008;
-    uint constant ERROR_EXCHANGE_PAYMENT_FAILED = 6009;
-    uint constant ERROR_EXCHANGE_TRANSFER_FAILED = 6010;
-    uint constant ERROR_EXCHANGE_FEE_TRANSFER_FAILED = 6011;
+    uint constant ERROR_EXCHANGE_MAINTENANCE_MODE = 6001;
+    uint constant ERROR_EXCHANGE_TOO_HIGH_PRICE = 6002;
+    uint constant ERROR_EXCHANGE_TOO_LOW_PRICE = 6003;
+    uint constant ERROR_EXCHANGE_INSUFFICIENT_BALANCE = 6004;
+    uint constant ERROR_EXCHANGE_INSUFFICIENT_ETHER_SUPPLY = 6005;
+    uint constant ERROR_EXCHANGE_PAYMENT_FAILED = 6006;
+    uint constant ERROR_EXCHANGE_TRANSFER_FAILED = 6007;
 
     // Assigned ERC20 token.
     Asset public asset;
@@ -71,6 +73,7 @@ contract Exchange is Object {
 
     // Should use interface of the emitter, but address of events history.
     ExchangeEmitter public eventsHistory;
+    address contractsManager;
 
     /**
      * Assigns ERC20 token for exchange.
@@ -81,11 +84,18 @@ contract Exchange is Object {
      *
      * @return success.
      */
-    function init(address _asset, address _rewards, uint _fee, uint _buyPrice, uint _sellPrice)
+    function init(
+        address _contractsManager,
+        address _asset,
+        address _rewards,
+        uint _fee,
+        uint _buyPrice,
+        uint _sellPrice)
     public
     onlyContractOwner
     returns (uint errorCode)
     {
+        require(_contractsManager != 0x0);
         require(_asset != 0x0);
         require(address(asset) == 0x0);
 
@@ -377,6 +387,28 @@ contract Exchange is Object {
         }
 
         return OK;
+    }
+
+    function destroy() onlyContractOwner {
+        revert();
+    }
+
+    function kill() onlyContractOwner returns (uint errorCode) {
+        if (this.balance > 0) {
+            return _emitError(ERROR_EXCHANGE_INVALID_INVOCATION);
+        }
+
+        if (asset.balanceOf(this) > 0) {
+            return _emitError(ERROR_EXCHANGE_INVALID_INVOCATION);
+        }
+
+        address exchangeManager = ContractsManager(contractsManager).getContractAddressByType("ExchangeManager");
+        errorCode = IExchangeManager(exchangeManager).removeExchange();
+        if (errorCode != OK) {
+            return _emitError(errorCode);
+        }
+
+        super.destroy();
     }
 
     function _emitError(uint errorCode) public returns (uint) {

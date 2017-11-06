@@ -224,20 +224,8 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         ExchangeManager(getEventsHistory()).emitExchangeAdded(user, exchange);
     }
 
-    function _emitExchangeEdited(address user, address oldExchange, address newExchange) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeEdited(user, oldExchange, newExchange);
-    }
-
     function _emitExchangeCreated(address user, address exchange) internal {
         ExchangeManager(getEventsHistory()).emitExchangeCreated(user, exchange);
-    }
-
-    function _emitExchangeOwnerAdded(address user, address owner, address exchange) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeOwnerAdded(user, owner, exchange);
-    }
-
-    function _emitExchangeOwnerRemoved(address user, address owner, address exchange) internal {
-        ExchangeManager(getEventsHistory()).emitExchangeOwnerRemoved(user, owner, exchange);
     }
 
     function _emitError(uint error) internal returns (uint) {

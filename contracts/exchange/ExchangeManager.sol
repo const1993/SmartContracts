@@ -155,7 +155,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     {
         // no additional checks needed if `onlyExchangeContractOwner` is passed
 
-        if (!isExchangeExists(_exchange)) {
+        if (isExchangeExists(_exchange)) {
             return _emitError(ERROR_EXCHANGE_STOCK_EXISTS);
         }
 

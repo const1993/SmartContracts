@@ -69,6 +69,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     external
     constant
     returns (address [] exchanges,
+             bytes32 [] symbols,
              address [] owners,
              uint [] buyPrices,
              uint [] sellPrices,
@@ -76,6 +77,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
              uint [] ethBalances)
     {
         exchanges = new address [] (_exchanges.length);
+        symbols = new bytes32 [] (_exchanges.length);
         owners = new address [] (_exchanges.length);
         buyPrices = new uint [] (_exchanges.length);
         sellPrices = new uint [] (_exchanges.length);
@@ -87,6 +89,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
                 Exchange exchange = Exchange(_exchanges[idx]);
 
                 exchanges[idx] = address(exchange);
+                symbols[idx] = getSymbol(address(exchange.asset()));
                 owners[idx] = exchange.contractOwner();
                 buyPrices[idx] = exchange.buyPrice();
                 sellPrices[idx] = exchange.sellPrice();

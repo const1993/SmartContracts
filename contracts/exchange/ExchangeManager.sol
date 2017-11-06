@@ -177,7 +177,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     public
     returns (uint errorCode)
     {
-        if (isExchangeExists(msg.sender)) {
+        if (!isExchangeExists(msg.sender)) {
             return _emitError(ERROR_EXCHANGE_STOCK_NOT_FOUND);
         }
 

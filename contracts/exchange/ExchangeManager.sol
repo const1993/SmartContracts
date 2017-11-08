@@ -20,6 +20,8 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     StorageInterface.Set exchanges; // (exchange [])
     StorageInterface.AddressesSetMapping owners; // (owner => exchange [])
 
+    StorageInterface.UInt fee;
+
     modifier onlyExchangeContractOwner(address _exchange) {
         if (Exchange(_exchange).contractOwner() == msg.sender) {
             _;
@@ -30,6 +32,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         exchanges.init("ex_m_exchanges");
         owners.init("ex_m_owners");
         exchangeFactory.init("ex_m_exchangeFactory");
+        fee.init("ex_m_fee");
     }
 
     function init(address _contractsManager, address _exchangeFactory)
@@ -103,11 +106,23 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return ExchangeFactory(store.get(exchangeFactory));
     }
 
+    function getFee() public constant returns (uint) {
+        return store.get(fee);
+    }
+
+    function setFee(uint _fee) public onlyAuthorized returns (uint) {
+        require(_fee > 1 && _fee < 10000);
+        store.set(fee, _fee);
+        return OK;
+    }
+
     function createExchange(
         bytes32 _symbol,
         bool _useTicker,
         uint _sellPrice,
-        uint _buyPrice)
+        uint _buyPrice,
+        address _authorizedManager,
+        bool _isActive)
     public
     returns (uint errorCode)
     {
@@ -121,10 +136,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
             return _emitError(ERROR_EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE);
         }
 
-        uint fee = 10; // TODO
-
         Exchange exchange = getExchangeFactory().createExchange();
-
 
         exchange.setupEventsHistory(getEventsHistory());
 
@@ -132,40 +144,31 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
             revert();
         }
 
-        exchange.init(contractsManager, Asset(token), rewards, fee, _buyPrice, _sellPrice);
+        exchange.init(contractsManager, Asset(token), rewards, getFee());
+
+        if (_buyPrice > 0 && _sellPrice > 0) {
+            if (exchange.setPrices(_buyPrice, _sellPrice) != OK) {
+                revert();
+            }
+        }
+
+        if (_authorizedManager != 0x0) {
+            if (exchange.grantAuthorized(_authorizedManager) != OK) {
+                revert();
+            }
+        }
+
+        if (exchange.setActive(_isActive) != OK) {
+            revert();
+        }
 
         if (!exchange.transferContractOwnership(msg.sender)) {
             revert();
         }
 
-        if (_useTicker) {
-            // TODO: not implemented yet
-        }
-
         registerExchange(Exchange(exchange));
 
-        _emitExchangeCreated(msg.sender, exchange, _symbol, rewards, fee, _buyPrice, _sellPrice);
-        return OK;
-    }
-
-    function addExchange(address _exchange)
-    public
-    onlyExchangeContractOwner(_exchange)
-    returns (uint errorCode)
-    {
-        // no additional checks needed if `onlyExchangeContractOwner` is passed
-
-        if (isExchangeExists(_exchange)) {
-            return _emitError(ERROR_EXCHANGE_STOCK_EXISTS);
-        }
-
-        // dirty `instance of` check
-        Exchange(_exchange).buyPrice();
-        Exchange(_exchange).sellPrice();
-
-        registerExchange(Exchange(_exchange));
-
-        _emitExchangeAdded(msg.sender, _exchange);
+        _emitExchangeCreated(msg.sender, exchange, _symbol, rewards, getFee(), _buyPrice, _sellPrice);
         return OK;
     }
 

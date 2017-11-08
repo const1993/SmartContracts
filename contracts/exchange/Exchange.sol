@@ -56,6 +56,8 @@ contract Exchange is Object {
     uint public sellPrice;
     // Fee value for operations 10000 is 0.01.
     uint public feePercent;
+    // Authorized price managers
+    mapping (address => bool) authorized;
 
     // User sold tokens and received wei.
     event ExchangeSell(address indexed exchange, address indexed who, uint token, uint eth);
@@ -75,6 +77,11 @@ contract Exchange is Object {
     ExchangeEmitter public eventsHistory;
     address contractsManager;
 
+    modifier onlyAuthorized() {
+        if (msg.sender == contractOwner || authorized[msg.sender]) {
+            _;
+        }
+    }
     /**
      * Assigns ERC20 token for exchange.
      *
@@ -88,9 +95,7 @@ contract Exchange is Object {
         address _contractsManager,
         address _asset,
         address _rewards,
-        uint _fee,
-        uint _buyPrice,
-        uint _sellPrice)
+        uint _fee)
     public
     onlyContractOwner
     returns (uint errorCode)
@@ -102,16 +107,6 @@ contract Exchange is Object {
         asset = Asset(_asset);
 
         errorCode = setFee(_rewards, _fee);
-        if (errorCode != OK) {
-            return errorCode;
-        }
-
-        errorCode = setPrices(_buyPrice, _sellPrice);
-        if (errorCode != OK) {
-            return errorCode;
-        }
-
-        errorCode = setActive(true);
         if (errorCode != OK) {
             return errorCode;
         }
@@ -137,6 +132,25 @@ contract Exchange is Object {
         return OK;
     }
 
+    function grantAuthorized(address _authorized)
+    public
+    onlyContractOwner
+    returns (uint) {
+        authorized[_authorized] = true;
+        return OK;
+    }
+
+    function revokeAuthorized(address _authorized)
+    public
+    onlyContractOwner
+    returns (uint) {
+        delete authorized[_authorized];
+        return OK;
+    }
+
+    function isAuthorized(address _authorized) public constant returns (bool) {
+        return authorized[_authorized];
+    }
     /**
      * Set exchange operation prices.
      * Sell price cannot be less than buy price.
@@ -150,7 +164,7 @@ contract Exchange is Object {
      */
     function setPrices(uint _buyPrice, uint _sellPrice)
     public
-    onlyContractOwner
+    onlyAuthorized
     returns (uint)
     {
         require(_sellPrice < _buyPrice);
@@ -159,20 +173,6 @@ contract Exchange is Object {
         sellPrice = _sellPrice;
 
         _emitPricesUpdated(_buyPrice, _sellPrice, msg.sender);
-        return OK;
-    }
-
-    function setFee(address _rewards, uint _feePercent)
-    internal
-    returns (uint)
-    {
-        require(_rewards != 0x0);
-        require(_feePercent > 1 && _feePercent < 10000);
-
-        rewards = _rewards;
-        feePercent = _feePercent;
-
-        _emitFeeUpdated(_rewards, _feePercent, msg.sender);
         return OK;
     }
 
@@ -409,6 +409,20 @@ contract Exchange is Object {
         }
 
         super.destroy();
+    }
+
+    function setFee(address _rewards, uint _feePercent)
+    internal
+    returns (uint)
+    {
+        require(_rewards != 0x0);
+        require(_feePercent > 1 && _feePercent < 10000);
+
+        rewards = _rewards;
+        feePercent = _feePercent;
+
+        _emitFeeUpdated(_rewards, _feePercent, msg.sender);
+        return OK;
     }
 
     function _emitError(uint errorCode) public returns (uint) {

@@ -98,10 +98,8 @@ contract GenericCrowdsale is BaseCrowdsale, Once {
     *
     *  This function is permited only for Sale Agent and can be executed only
     *  when crawdsale is running.
-    *
-    *  Sale Agent must send some wei, because of price fetching is not free.
     */
-    function sale(address _investor, uint _value, bytes32 _currencyCode) onlySaleAgent(_currencyCode) onlyRunning payable public {
+    function sale(address _investor, uint _value, bytes32 _currencyCode) onlySaleAgent(_currencyCode) onlyRunning public {
         require(_investor != 0x0);
         require(_currencyCode != 0x0);
 

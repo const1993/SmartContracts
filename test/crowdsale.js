@@ -20,6 +20,18 @@ Array.prototype.unique = function() {
   });
 }
 
+let sendEtherPromise = (from, to, value) => {
+    return new Promise(function (resolve, reject) {
+        web3.eth.sendTransaction({from: from, to: to, value: 10, gas: 4700000}, (function (e, result) {
+            if (e != null) {
+                reject(e);
+            } else {
+                resolve(result);
+            }
+        }))
+    })
+}
+
 contract('CrowdsaleManager', function(accounts) {
     const TOKEN_1 = 'AWSM';   //reissuable
     const TOKEN_2 = 'AWSM2'; //non-reissuable
@@ -147,7 +159,7 @@ contract('CrowdsaleManager', function(accounts) {
 
     context("Ether crowdsale", function() {
         var campaign
-        var etherReceiverAddr = accounts[0]
+        var etherSenderAddr = accounts[0]
 
         it("Should be possible to start Ether crowdsale campaign by asset-owner", async () => {
             let successCreateCrowdsaleResultCode = await tokenExtension.createCrowdsaleCampaign.call(TOKEN_1, crowdsaleFactoryName, { from: tokenOwner })
@@ -169,7 +181,7 @@ contract('CrowdsaleManager', function(accounts) {
             assert.equal(fundAddr, 0x0)
 
             try {
-                await sendEtherPromise(accounts[0], campaign.address, 10)
+                await sendEtherPromise(etherSenderAddr, campaign.address, 10)
                 assert.isTrue(false)
             } catch(e) {
                 assert.isTrue(true)
@@ -240,8 +252,8 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("Should be possible to send Ether to crowdsale", async () => {
             try {
-                await sendEtherPromise(etherReceiverAddr, campaign.address, 10)
-                let balance = await platform.balanceOf.call(etherReceiverAddr, TOKEN_1)
+                await sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                let balance = await platform.balanceOf.call(etherSenderAddr, TOKEN_1)
                 assert.equal(balance.toNumber(), 10)
             } catch (e) {
                 assert.isTrue(false)
@@ -250,8 +262,8 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("Should be possible to send Ether to crowdsale twice", async () => {
             try {
-                await sendEtherPromise(etherReceiverAddr, campaign.address, 10)
-                let balance = await platform.balanceOf.call(etherReceiverAddr, TOKEN_1)
+                await sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                let balance = await platform.balanceOf.call(etherSenderAddr, TOKEN_1)
                 assert.equal(balance.toNumber(), 20)
             } catch(e) {
                 console.log("thrown error", e);
@@ -267,18 +279,6 @@ contract('CrowdsaleManager', function(accounts) {
                 assert.isTrue(true)
             }
         })
-
-        let sendEtherPromise = (from, to, value) => {
-            return new Promise(function (resolve, reject) {
-                web3.eth.sendTransaction({from: etherReceiverAddr, to: campaign.address, value: 10, gas: 4700000}, (function (e, result) {
-                    if (e != null) {
-                        reject(e);
-                    } else {
-                        resolve(result);
-                    }
-                }))
-            })
-        }
 
         it("revert", reverter.revert)
     })

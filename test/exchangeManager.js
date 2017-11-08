@@ -16,6 +16,7 @@ contract('Exchange Manager', function(accounts) {
     const owner4 = accounts[4]
     const owner5 = accounts[5]
     const nonOwner = accounts[6]
+    const manager = accounts[7]
     const SYMBOL = 'TIME'
     let coin
     let coin2
@@ -38,57 +39,29 @@ contract('Exchange Manager', function(accounts) {
 
     context("CRUD interface test", function () {
 
-        it("should allow to create new exchange", function () {
+        it("should allow to create a new exchange", async () => {
             let exchange;
-            return Setup.exchangeManager.createExchange.call(SYMBOL, false, 1, 2)
-            .then(function (r) {
-                assert.equal(r, ErrorsEnum.OK);
-                return Setup.exchangeManager.createExchange(SYMBOL, false, 1, 2);
-            })
-            .then(tx => eventsHelper.extractEvents(tx, "ExchangeCreated"))
-            .then(events => exchange = events[0].args.exchange)
-            .then(() => Setup.exchangeManager.isExchangeExists.call(exchange))
-            .then(r => assert.isTrue(r))
-            .then(() => Setup.exchangeManager.getExchangesForOwner.call(owner))
-            .then(exchanges => {
-                assert.equal(exchanges.length, 1);
-                assert.equal(exchanges[0], exchange);
-            })
-        });
 
-        it("should allow to add exchange contract", function () {
-            return Setup.exchangeManager.addExchange.call(exchange.address, {
-                from: accounts[0],
-                gas: 3000000
-            }).then(function (r) {
-                return Setup.exchangeManager.addExchange(exchange.address, {
-                    from: accounts[0],
-                    gas: 3000000
-                }).then(function () {
-                    assert.equal(r, ErrorsEnum.OK);
-                });
-            });
-        });
+console.log(1);
 
-        it("shouldn't allow to add exchange contract twice", function () {
-            return Setup.exchangeManager.addExchange.call(exchange.address, {
-                from: accounts[0],
-                gas: 3000000
-            }).then(function (r) {
-                return Setup.exchangeManager.addExchange(exchange.address, {
-                    from: accounts[0],
-                    gas: 3000000
-                }).then(function () {
-                    assert.equal(r, ErrorsEnum.EXCHANGE_STOCK_ALREADY_EXISTS);
-                });
-            });
-        });
+            let result = await Setup.exchangeManager.createExchange.call(SYMBOL, 2, 1, manager, true);
+            assert.equal(result, ErrorsEnum.OK);
 
-        it("shouldn't add exchange contract if it is not an exchange contract", function () {
-            return Setup.exchangeManager.addExchange(coin.address, {
-                from: accounts[0],
-                gas: 3000000
-            }).then(assert.fail, () => true)
+console.log(2);
+            let createExchangeTx = await Setup.exchangeManager.createExchange(SYMBOL, 2, 1, manager, true);
+            let events = eventsHelper.extractEvents(tx, "ExchangeCreated");
+            assert.equal(events.length, 1);
+
+console.log(3);
+            exchange = events[0].args.exchange;
+
+            console.log(4);
+            let exchangeExists = await Setup.exchangeManager.isExchangeExists.call(exchange);
+            assert.isTrue(exchangeExists);
+            console.log(5);
+            let exchanges = await Setup.exchangeManager.getExchangesForOwner.call(owner);
+            assert.equal(exchanges.length, 1);
+            assert.equal(exchanges[0], exchange);
         });
 
         it("shouldn't allow exchange owner to delete exchange contract to nonOwner", function () {
@@ -96,15 +69,6 @@ contract('Exchange Manager', function(accounts) {
                 assert.equal(r,ErrorsEnum.UNAUTHORIZED);
             });
         });
-
-        it("should allow exchange owner to delete exchange contract to owner", function () {
-            return Setup.exchangeManager.removeExchange.call(exchange.address).then(function (r) {
-                return Setup.exchangeManager.removeExchange(exchange.address).then(function () {
-                    assert.equal(r, ErrorsEnum.OK);
-                });
-            });
-        });
-
     });
 
     context("Security tests", function () {

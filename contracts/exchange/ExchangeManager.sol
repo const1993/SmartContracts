@@ -1,25 +1,25 @@
 pragma solidity ^0.4.11;
 
 import "../core/common/BaseManager.sol";
-import "./Exchange.sol";
 import "../core/erc20/ERC20Manager.sol";
-import {ERC20Interface as Asset} from "../core/erc20/ERC20Interface.sol";
-import "./ExchangeManagerEmitter.sol";
-import "../assets/AssetsManager.sol";
 import "../core/event/MultiEventsHistory.sol";
+import {ERC20Interface as Asset} from "../core/erc20/ERC20Interface.sol";
+
+import "./Exchange.sol";
+import "./ExchangeManagerEmitter.sol";
 import "./ExchangeFactory.sol";
 
-
+/**
+*
+*/
 contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     uint constant ERROR_EXCHANGE_STOCK_NOT_FOUND = 7000;
-    uint constant ERROR_EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE = 7001;
+    uint constant ERROR_EXCHANGE_STOCK_INTERNAL = 7001;
     uint constant ERROR_EXCHANGE_STOCK_UNKNOWN_SYMBOL = 7002;
-    uint constant ERROR_EXCHANGE_STOCK_EXISTS = 7003;
 
     StorageInterface.Address exchangeFactory;
     StorageInterface.Set exchanges; // (exchange [])
     StorageInterface.AddressesSetMapping owners; // (owner => exchange [])
-
     StorageInterface.UInt fee;
 
     modifier onlyExchangeContractOwner(address _exchange) {
@@ -28,6 +28,9 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
+    /**
+    *
+    */
     function ExchangeManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
         exchanges.init("ex_m_exchanges");
         owners.init("ex_m_owners");
@@ -35,28 +38,132 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         fee.init("ex_m_fee");
     }
 
+    /**
+    *
+    */
     function init(address _contractsManager, address _exchangeFactory)
     public
     onlyContractOwner
     returns (uint)
     {
         BaseManager.init(_contractsManager, "ExchangeManager");
+        if (setExchangeFactory(_exchangeFactory) != OK) {
+            revert();
+        }
+        return OK;
+    }
+
+    /**
+    *
+    */
+    function setFee(uint _fee) public onlyAuthorized returns (uint) {
+        require(_fee > 1 && _fee < 10000);
+        store.set(fee, _fee);
+        return OK;
+    }
+
+    /**
+    *
+    */
+    function setExchangeFactory(address _exchangeFactory) public onlyContractOwner returns (uint) {
+        require(_exchangeFactory != 0x0);
         store.set(exchangeFactory, _exchangeFactory);
         return OK;
     }
 
-    function isExchangeExists(address exchange) public constant returns (bool) {
-        return store.includes(exchanges, bytes32(exchange));
+    /**
+    *  Creates a new exchange with the given params.
+    */
+    function createExchange(
+        bytes32 _symbol,
+        uint _buyPrice,
+        uint _sellPrice,
+        address _authorizedManager,
+        bool _isActive)
+    public
+    returns (uint errorCode)
+    {
+        address token = lookupERC20Manager().getTokenAddressBySymbol(_symbol);
+        if (token == 0x0) {
+            return _emitError(ERROR_EXCHANGE_STOCK_UNKNOWN_SYMBOL);
+        }
+
+        address rewards = lookupManager("Rewards");
+        if (rewards == 0x0) {
+            return _emitError(ERROR_EXCHANGE_STOCK_INTERNAL);
+        }
+
+        Exchange exchange = getExchangeFactory().createExchange();
+
+        exchange.setupEventsHistory(getEventsHistory());
+        if (!MultiEventsHistory(getEventsHistory()).authorize(exchange)) {
+            revert();
+        }
+
+        exchange.init(contractsManager, token, rewards, getFee());
+
+        if (_buyPrice > 0 && _sellPrice > 0) {
+            if (exchange.setPrices(_buyPrice, _sellPrice) != OK) {
+                revert();
+            }
+        }
+
+        if (_authorizedManager != 0x0) {
+            if (exchange.grantAuthorized(_authorizedManager) != OK) {
+                revert();
+            }
+        }
+
+        if (exchange.setActive(_isActive) != OK) {
+            revert();
+        }
+
+        if (!exchange.transferContractOwnership(msg.sender)) {
+            revert();
+        }
+
+        store.add(exchanges, bytes32(address(exchange)));
+        store.add(owners, bytes32(msg.sender), address(exchange));
+
+        /*assert(exchange.contractOwner() == msg.sender);
+        assert(exchange.rewards() == rewards);
+        assert(exchange.feePercent() == getFee());*/
+
+        _emitExchangeCreated(msg.sender, exchange, _symbol, rewards, getFee(), _buyPrice, _sellPrice);
+        return OK;
     }
 
-    function getExchangesForOwner(address owner) public constant returns (address []) {
-        return store.get(owners, bytes32(owner));
+    /**
+    *  Deletes msg.sender from the exchange list.
+    *  Note: Designed to be called only by exchange contract.
+    */
+    function removeExchange()
+    public
+    returns (uint errorCode)
+    {
+        if (!isExchangeExists(msg.sender)) {
+            return _emitError(ERROR_EXCHANGE_STOCK_NOT_FOUND);
+        }
+
+        store.remove(exchanges, bytes32(msg.sender));
+
+        address owner = Exchange(msg.sender).contractOwner();
+        store.remove(owners, bytes32(owner), msg.sender);
+
+        _emitExchangeRemoved(msg.sender);
+        return OK;
     }
 
-    function getExchangesForOwnerCount(address owner) public constant returns (address []) {
-        return store.get(owners, bytes32(owner));
+    /**
+    *
+    */
+    function isExchangeExists(address _exchange) public constant returns (bool) {
+        return store.includes(exchanges, bytes32(_exchange));
     }
 
+    /**
+    *
+    */
     function getExchanges(uint _fromIdx, uint _length) public constant returns (address [] result) {
         result = new address [] (_length);
         for (uint idx = 0; idx < _length; idx++) {
@@ -64,10 +171,37 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
+    /**
+    *  Returns count of registered exchanges.
+    */
     function getExchangesCount() public constant returns (uint) {
         return store.count(exchanges);
     }
 
+    /**
+    *
+    */
+    function getExchangesForOwner(address _owner) public constant returns (address []) {
+        return store.get(owners, bytes32(_owner));
+    }
+
+    /**
+    *
+    */
+    function getExchangesForOwnerCount(address _owner) public constant returns (address []) {
+        return store.get(owners, bytes32(_owner));
+    }
+
+    /**
+    *  The fee value against which the exchange should calculate fee.
+    */
+    function getFee() public constant returns (uint) {
+        return store.get(fee);
+    }
+
+    /**
+    *
+    */
     function getExchangeData(address [] _exchanges)
     external
     constant
@@ -102,144 +236,47 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
+    /**
+    *  Returns the exhange factory address
+    */
     function getExchangeFactory() public constant returns (ExchangeFactory) {
         return ExchangeFactory(store.get(exchangeFactory));
     }
 
-    function getFee() public constant returns (uint) {
-        return store.get(fee);
-    }
-
-    function setFee(uint _fee) public onlyAuthorized returns (uint) {
-        require(_fee > 1 && _fee < 10000);
-        store.set(fee, _fee);
-        return OK;
-    }
-
-    function createExchange(
-        bytes32 _symbol,
-        bool _useTicker,
-        uint _sellPrice,
-        uint _buyPrice,
-        address _authorizedManager,
-        bool _isActive)
-    public
-    returns (uint errorCode)
-    {
-        address token = lookupERC20Manager().getTokenAddressBySymbol(_symbol);
-        if (token == 0x0) {
-            return _emitError(ERROR_EXCHANGE_STOCK_UNKNOWN_SYMBOL);
-        }
-
-        address rewards = lookupManager("Rewards");
-        if (rewards == 0x0) {
-            return _emitError(ERROR_EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE);
-        }
-
-        Exchange exchange = getExchangeFactory().createExchange();
-
-        exchange.setupEventsHistory(getEventsHistory());
-
-        if (!MultiEventsHistory(getEventsHistory()).authorize(exchange)) {
-            revert();
-        }
-
-        exchange.init(contractsManager, Asset(token), rewards, getFee());
-
-        if (_buyPrice > 0 && _sellPrice > 0) {
-            if (exchange.setPrices(_buyPrice, _sellPrice) != OK) {
-                revert();
-            }
-        }
-
-        if (_authorizedManager != 0x0) {
-            if (exchange.grantAuthorized(_authorizedManager) != OK) {
-                revert();
-            }
-        }
-
-        if (exchange.setActive(_isActive) != OK) {
-            revert();
-        }
-
-        if (!exchange.transferContractOwnership(msg.sender)) {
-            revert();
-        }
-
-        registerExchange(Exchange(exchange));
-
-        _emitExchangeCreated(msg.sender, exchange, _symbol, rewards, getFee(), _buyPrice, _sellPrice);
-        return OK;
-    }
-
-    /**
-    *  Deletes msg.sender from an exchange list.
-    *  Designed to be called by exchange contract.
-    */
-    function removeExchange()
-    public
-    returns (uint errorCode)
-    {
-        if (!isExchangeExists(msg.sender)) {
-            return _emitError(ERROR_EXCHANGE_STOCK_NOT_FOUND);
-        }
-
-        unregisterExchange(Exchange(msg.sender));
-
-        _emitExchangeRemoved(msg.sender);
-        return OK;
-    }
-
-    function lookupAssetMananger() private constant returns (AssetsManager) {
-        return AssetsManager(lookupManager("AssetsManager"));
-    }
-
-    function lookupERC20Manager() private constant returns (ERC20Manager) {
+    function lookupERC20Manager() internal constant returns (ERC20Manager) {
         return ERC20Manager(lookupManager("ERC20Manager"));
     }
 
-    function registerExchange(Exchange exchange) private {
-        store.add(exchanges, bytes32(address(exchange)));
-
-        address owner = exchange.contractOwner();
-        store.add(owners, bytes32(owner), address(exchange));
-    }
-
-    function unregisterExchange(Exchange exchange) private {
-        store.remove(exchanges, bytes32(address(exchange)));
-
-        address owner = exchange.contractOwner();
-        store.remove(owners, bytes32(owner), address(exchange));
-    }
-
-    //bytes32 smb = getSymbol(address(exchange.asset()));
-    function getSymbol(address token) internal constant returns (bytes32) {
+    function getSymbol(address _token) internal constant returns (bytes32) {
         var (tokenAddress, name, symbol, url, decimals, ipfsHash, swarmHash)
-                = lookupERC20Manager().getTokenMetaData(token);
+                = lookupERC20Manager().getTokenMetaData(_token);
         return symbol;
     }
 
-    function _emitExchangeRemoved(address exchange) internal {
-        Asset asset = Exchange(exchange).asset();
-        ExchangeManager(getEventsHistory()).emitExchangeRemoved(exchange, getSymbol(address(asset)));
+    // Events History util methods
+
+    function _emitExchangeRemoved(address _exchange) internal {
+        Asset asset = Exchange(_exchange).asset();
+        ExchangeManager(getEventsHistory()).emitExchangeRemoved(_exchange, getSymbol(address(asset)));
     }
 
-    function _emitExchangeAdded(address user, address exchange) internal {
-        Asset asset = Exchange(exchange).asset();
-        ExchangeManager(getEventsHistory()).emitExchangeAdded(user, exchange, getSymbol(address(asset)));
+    function _emitExchangeAdded(address _user, address _exchange) internal {
+        Asset asset = Exchange(_exchange).asset();
+        ExchangeManager(getEventsHistory()).emitExchangeAdded(_user, _exchange, getSymbol(address(asset)));
     }
 
     function _emitExchangeCreated(
-        address user,
-        address exchange,
-        bytes32 symbol,
-        address rewards,
-        uint fee,
-        uint buyPrice,
-        uint sellPrice)
+        address _user,
+        address _exchange,
+        bytes32 _symbol,
+        address _rewards,
+        uint _fee,
+        uint _buyPrice,
+        uint _sellPrice)
     internal
     {
-        ExchangeManager(getEventsHistory()).emitExchangeCreated(user, exchange, symbol, rewards, fee, buyPrice, sellPrice);
+        ExchangeManager(getEventsHistory())
+            .emitExchangeCreated(_user, _exchange, _symbol, _rewards, _fee, _buyPrice, _sellPrice);
     }
 
     function _emitError(uint error) internal returns (uint) {

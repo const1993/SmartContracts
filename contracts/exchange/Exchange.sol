@@ -106,10 +106,10 @@ contract Exchange is Object {
 
         asset = Asset(_asset);
 
-        errorCode = setFee(_rewards, _fee);
+        /*errorCode = setFee(_rewards, _fee);
         if (errorCode != OK) {
             return errorCode;
-        }
+        }*/
 
         return OK;
     }
@@ -167,7 +167,7 @@ contract Exchange is Object {
     onlyAuthorized
     returns (uint)
     {
-        require(_sellPrice < _buyPrice);
+        require(_buyPrice > _sellPrice);
 
         buyPrice = _buyPrice;
         sellPrice = _sellPrice;
@@ -416,7 +416,7 @@ contract Exchange is Object {
     returns (uint)
     {
         require(_rewards != 0x0);
-        require(_feePercent > 1 && _feePercent < 10000);
+        require(/*_feePercent > 1 && */ _feePercent < 10000);
 
         rewards = _rewards;
         feePercent = _feePercent;

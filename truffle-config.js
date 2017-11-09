@@ -7,5 +7,11 @@ networks: {
       gas: 4700000
     }
   },
+  solc: {
+    optimizer: {
+      enabled: true,
+      runs: 200
+    }
+  },
   migrations_directory: './migrations'
 }

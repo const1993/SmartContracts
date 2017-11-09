@@ -22,7 +22,8 @@ contract OwnedContract {
 
 
 /**
-* @dev TODO
+* @dev Defines implementation for managing platforms creation and tracking system's platforms.
+* Some of methods could require to pay additional fee in TIMEs during their invocation.
 */
 contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmitter, PlatformsManagerInterface {
 
@@ -39,20 +40,20 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
     /** Storage keys */
 
-    /** TODO */
+    /** address of platforms factory contract */
     StorageInterface.Address platformsFactory;
 
-    /** TODO */
+    /** mapping (address => set(address)) stands for (owner => set(platform)) */
     StorageInterface.AddressesSetMapping ownerToPlatforms;
 
-    /** TODO */
+    /** set(address) stands for set(platform) */
     StorageInterface.OrderedAddressesSet platforms;
 
-    /** TODO */
+    /** mapping (address => uint256) stands for (platform => index) */
     StorageInterface.AddressUIntMapping syncPlatformToSymbolIdx;
 
     /**
-    * @dev TODO
+    * @dev Guards methods for only platform owners
     */
     modifier onlyPlatformOwner(address _platform) {
         if (_isPlatformOwner(_platform)) {
@@ -61,7 +62,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     }
 
     /**
-    * @dev TODO
+    * @dev Guards methods for contracts that was platorm's owners the last time they were accessed
     */
     modifier onlyPreviousPlatformOwner(address _platform, address _previousOwner) {
         if (store.includes(ownerToPlatforms, bytes32(_previousOwner), _platform)) {
@@ -85,28 +86,45 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     }
 
     /**
-    * @dev TODO
+    * @dev Returns a platform owned by passed user by accessing it by index that is registered in the system.
+    *
+    * @param _user associated owner of platforms
+    * @param _idx index of a platform
+    *
+    * @return _platform platform address
     */
     function getPlatformForUserAtIndex(address _user, uint _idx) public constant returns (address _platform) {
         _platform = store.get(ownerToPlatforms, bytes32(_user), _idx);
     }
 
     /**
-    * @dev TODO
+    * @dev Gets number of platform that are owned by passed user.
+    *
+    * @param _user associated owner of platforms
+    *
+    * @result number of platforms owned by user
     */
     function getPlatformsForUserCount(address _user) public constant returns (uint) {
         return store.count(ownerToPlatforms, bytes32(_user));
     }
 
     /**
-    * @dev TODO
+    * @dev Gets list of platforms owned by passed user
+    *
+    * @param _user associated owner of platforms
+    *
+    * @result _platforms list of platforms owned by user
     */
     function getPlatformsMetadataForUser(address _user) public constant returns (address[] _platforms) {
         _platforms = store.get(ownerToPlatforms, bytes32(_user));
     }
 
     /**
-    * @dev TODO
+    * @dev Checks if passed platform is presented in the system
+    *
+    * @param _platform platform address
+    *
+    * @return `true` if it is registered, `false` otherwise
     */
     function isPlatformAttached(address _platform) public constant returns (bool) {
         return store.includes(platforms, _platform);
@@ -145,7 +163,6 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
         address _owner = OwnedContract(_platform).contractOwner();
         if (!store.includes(ownerToPlatforms, bytes32(_owner), _platform)) {
-            /* @dev TODO: have to think how to avoid this situation */
             return _emitError(ERROR_PLATFORMS_INCONSISTENT_INTERNAL_STATE);
         }
 

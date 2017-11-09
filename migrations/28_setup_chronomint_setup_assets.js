@@ -13,7 +13,6 @@ const LOCWallet = artifacts.require('./LOCWallet.sol');
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 
 const bs58 = require("bs58");
-const BigNumber = require("bignumber.js");
 const Buffer = require("buffer").Buffer;
 
 

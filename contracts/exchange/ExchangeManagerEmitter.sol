@@ -37,6 +37,6 @@ contract ExchangeManagerEmitter is MultiEventsHistoryAdapter {
     }
 
     function emitError(uint errorCode) {
-        Error(_self(),errorCode);
+        Error(_self(), errorCode);
     }
 }

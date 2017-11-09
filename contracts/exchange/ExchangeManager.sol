@@ -10,7 +10,14 @@ import "./ExchangeManagerEmitter.sol";
 import "./ExchangeFactory.sol";
 
 /**
+*  ExchangeManager
 *
+*  ExchangeManager contract is the exchange registry which holds info
+*  about created exchanges and provides some util methods for managing it.
+*
+*  The entry point for creating new exchanges.
+*
+*  CBE users are permited to manage fee value against which an exchange will calculate fee.
 */
 contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     uint constant ERROR_EXCHANGE_STOCK_NOT_FOUND = 7000;
@@ -29,7 +36,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     /**
-    *
+    *  Contructor
     */
     function ExchangeManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
         exchanges.init("ex_m_exchanges");
@@ -39,7 +46,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     /**
-    *
+    *  Initialises an exchange with the given params
     */
     function init(address _contractsManager, address _exchangeFactory)
     public
@@ -54,18 +61,28 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     /**
+    *  Sets fee value against which the exchange should calculate fee.
     *
+    *  Note, only CBE members are allowed to set this value.
     */
-    function setFee(uint _fee) public onlyAuthorized returns (uint) {
-        require(_fee > 1 && _fee < 10000);
+    function setFee(uint _fee)
+    public
+    onlyAuthorized
+    returns (uint)
+    {
+        require(_fee < 10000);
         store.set(fee, _fee);
         return OK;
     }
 
     /**
-    *
+    *  Sets the Exchange Factory address
     */
-    function setExchangeFactory(address _exchangeFactory) public onlyContractOwner returns (uint) {
+    function setExchangeFactory(address _exchangeFactory)
+    public
+    onlyContractOwner
+    returns (uint)
+    {
         require(_exchangeFactory != 0x0);
         store.set(exchangeFactory, _exchangeFactory);
         return OK;
@@ -93,7 +110,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
             return _emitError(ERROR_EXCHANGE_STOCK_INTERNAL);
         }
 
-        Exchange exchange = getExchangeFactory().createExchange();
+        Exchange exchange = Exchange(getExchangeFactory().createExchange());
 
         exchange.setupEventsHistory(getEventsHistory());
         if (!MultiEventsHistory(getEventsHistory()).authorize(exchange)) {
@@ -125,9 +142,9 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         store.add(exchanges, bytes32(address(exchange)));
         store.add(owners, bytes32(msg.sender), address(exchange));
 
-        /*assert(exchange.contractOwner() == msg.sender);
+        assert(exchange.contractOwner() == msg.sender);
         assert(exchange.rewards() == rewards);
-        assert(exchange.feePercent() == getFee());*/
+        assert(exchange.feePercent() == getFee());
 
         _emitExchangeCreated(msg.sender, exchange, _symbol, rewards, getFee(), _buyPrice, _sellPrice);
         return OK;
@@ -155,14 +172,14 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     /**
-    *
+    *  Tells whether the given _exchange is in registry.
     */
     function isExchangeExists(address _exchange) public constant returns (bool) {
         return store.includes(exchanges, bytes32(_exchange));
     }
 
     /**
-    *
+    *  Returns the paginated array of excnhages, starting from _fromIdx and len _length.
     */
     function getExchanges(uint _fromIdx, uint _length) public constant returns (address [] result) {
         result = new address [] (_length);
@@ -172,21 +189,21 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     /**
-    *  Returns count of registered exchanges.
+    *  Returns the count of the registered exchanges.
     */
     function getExchangesCount() public constant returns (uint) {
         return store.count(exchanges);
     }
 
     /**
-    *
+    *  Returns the exchanges which belongs to the given _owner
     */
     function getExchangesForOwner(address _owner) public constant returns (address []) {
         return store.get(owners, bytes32(_owner));
     }
 
     /**
-    *
+    *  Returns the number of exchanges which belongs to the given _owner
     */
     function getExchangesForOwnerCount(address _owner) public constant returns (address []) {
         return store.get(owners, bytes32(_owner));
@@ -200,7 +217,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     /**
-    *
+    *  Util method which returns agregated data for given _exchanges.
     */
     function getExchangeData(address [] _exchanges)
     external
@@ -237,16 +254,22 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     }
 
     /**
-    *  Returns the exhange factory address
+    *  Returns the Exchange Factory address
     */
     function getExchangeFactory() public constant returns (ExchangeFactory) {
         return ExchangeFactory(store.get(exchangeFactory));
     }
 
+    /**
+    *  Retturns ERC20Manager address
+    */
     function lookupERC20Manager() internal constant returns (ERC20Manager) {
         return ERC20Manager(lookupManager("ERC20Manager"));
     }
 
+    /**
+    *  Returns the symbol of the given token
+    */
     function getSymbol(address _token) internal constant returns (bytes32) {
         var (tokenAddress, name, symbol, url, decimals, ipfsHash, swarmHash)
                 = lookupERC20Manager().getTokenMetaData(_token);
@@ -257,12 +280,14 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
 
     function _emitExchangeRemoved(address _exchange) internal {
         Asset asset = Exchange(_exchange).asset();
-        ExchangeManager(getEventsHistory()).emitExchangeRemoved(_exchange, getSymbol(address(asset)));
+        ExchangeManager(getEventsHistory())
+            .emitExchangeRemoved(_exchange, getSymbol(address(asset)));
     }
 
     function _emitExchangeAdded(address _user, address _exchange) internal {
         Asset asset = Exchange(_exchange).asset();
-        ExchangeManager(getEventsHistory()).emitExchangeAdded(_user, _exchange, getSymbol(address(asset)));
+        ExchangeManager(getEventsHistory())
+            .emitExchangeAdded(_user, _exchange, getSymbol(address(asset)));
     }
 
     function _emitExchangeCreated(

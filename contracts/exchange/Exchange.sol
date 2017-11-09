@@ -106,10 +106,12 @@ contract Exchange is Object {
 
         asset = Asset(_asset);
 
-        /*errorCode = setFee(_rewards, _fee);
+        contractsManager = _contractsManager;
+
+        errorCode = setFee(_rewards, _fee);
         if (errorCode != OK) {
             return errorCode;
-        }*/
+        }
 
         return OK;
     }
@@ -390,7 +392,7 @@ contract Exchange is Object {
     }
 
     function destroy() onlyContractOwner {
-        revert();
+        //revert();
     }
 
     function kill() onlyContractOwner returns (uint errorCode) {
@@ -408,7 +410,7 @@ contract Exchange is Object {
             return _emitError(errorCode);
         }
 
-        super.destroy();
+        Owned.destroy();
     }
 
     function setFee(address _rewards, uint _feePercent)

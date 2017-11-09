@@ -3,16 +3,20 @@ const ErrorsEnum = require("../common/errors")
 var eventsHelper = require('./helpers/eventsHelper');
 const bytes32 = require('./helpers/bytes32');
 const Reverter = require('./helpers/reverter')
+const TimeMachine = require('./helpers/timemachine')
 
 const AssetsManager = artifacts.require('./AssetsManager.sol')
 const PlatformsManager = artifacts.require('./PlatformsManager.sol')
 const ChronoBankPlatform = artifacts.require('./ChronoBankPlatform.sol')
 const TokenCrowdsaleManagementInterface = artifacts.require('./TokenCrowdsaleManagementInterface.sol')
 const TimeLimitedCrowdsale = artifacts.require('./TimeLimitedCrowdsale.sol')
+const BlockLimitedCrowdsale = artifacts.require('./BlockLimitedCrowdsale.sol')
 const CrowdsaleManager = artifacts.require('./CrowdsaleManager.sol')
 const TimeLimitedCrowdsaleFactory = artifacts.require('./TimeLimitedCrowdsaleFactory.sol')
+const BlockLimitedCrowdsaleFactory = artifacts.require('./BlockLimitedCrowdsaleFactory.sol')
 const FakePriceTicker = artifacts.require('./FakePriceTicker.sol')
 const PlatformTokenExtensionGatewayManagerEmitter = artifacts.require('./PlatformTokenExtensionGatewayManagerEmitter.sol')
+const Clock = artifacts.require('./Clock.sol')
 
 Array.prototype.unique = function() {
   return this.filter(function (value, index, self) {
@@ -20,17 +24,74 @@ Array.prototype.unique = function() {
   });
 }
 
-let sendEtherPromise = (from, to, value) => {
-    return new Promise(function (resolve, reject) {
-        web3.eth.sendTransaction({from: from, to: to, value: 10, gas: 4700000}, (function (e, result) {
-            if (e != null) {
-                reject(e);
-            } else {
-                resolve(result);
-            }
-        }))
-    })
+function Testrpc(web3) {
+    let id = 0x77777
+
+    this.sendEtherPromise = (from, to, value) => {
+        return new Promise(function (resolve, reject) {
+            web3.eth.sendTransaction({from: from, to: to, value: value, gas: 4700000}, (function (e, result) {
+                if (e != null) {
+                    reject(e);
+                } else {
+                    resolve(result);
+                }
+            }))
+        })
+    }
+
+    this.getCurrentBlockNumber = () => {
+        return new Promise((resolve, reject) => {
+            web3.currentProvider.sendAsync({
+              jsonrpc: "2.0",
+              method: "eth_blockNumber",
+              id: id
+            }, function(err, result) {
+              // this is your callback
+              if (err !== null) {
+                  reject(err)
+              } else {
+                  resolve(parseInt(result["result"]))
+              }
+            });
+        })
+    }
+
+    this.mineBlock = (numberOfBlocks) => {
+        if (numberOfBlocks == 0) {
+            return Promise.resolve()
+        }
+
+        if (numberOfBlocks === undefined) {
+            numberOfBlocks = 1;
+        }
+
+        var next = Promise.resolve()
+        for (var idx = 0; idx < numberOfBlocks; ++idx) {
+            (function () {
+                next = next.then(() => {
+                    return new Promise((resolve, reject) => {
+                        web3.currentProvider.sendAsync({
+                            jsonrpc: "2.0",
+                            method: "evm_mine",
+                            id: id
+                        }, function(err, result) {
+                            // this is your callback
+                            if (err !== null) {
+                                reject(err)
+                            } else {
+                                resolve()
+                            }
+                        })
+                    })
+                })
+            })()
+        }
+
+        return next
+    }
 }
+
+
 
 contract('CrowdsaleManager', function(accounts) {
     const TOKEN_1 = 'AWSM';   //reissuable
@@ -44,10 +105,13 @@ contract('CrowdsaleManager', function(accounts) {
     const crowdsaleFactoryName = "TimeLimitedCrowdsaleFactory";
 
     const reverter = new Reverter(web3)
+    const testrpc = new Testrpc(web3)
+    const timeMachine = new TimeMachine(web3)
 
     let utils = web3._extend.utils
     const zeroAddress = '0x' + utils.padLeft(utils.toHex("0").substr(2), 40)
 
+    let clock
     let platform
     let tokenExtension
     let tokenExtensionEmitter
@@ -72,6 +136,10 @@ contract('CrowdsaleManager', function(accounts) {
         .then(() => tokenExtension.createAssetWithoutFee(TOKEN_2, "Awesome Token 2",'Token 2', 100, 0, false, 0x0, { from: tokenOwner }))
         .then(() => TimeLimitedCrowdsaleFactory.deployed())
         .then(crowdsaleFactory => crowdsaleFactory.setPriceTicker(FakePriceTicker.address))
+        .then(() => BlockLimitedCrowdsaleFactory.deployed())
+        .then(crowdsaleFactory => crowdsaleFactory.setPriceTicker(FakePriceTicker.address))
+        .then(() => Clock.deployed())
+        .then(_clock => clock = _clock)
         .then(() => {
             Setup.setup(() => {
                reverter.snapshot(done)
@@ -181,7 +249,7 @@ contract('CrowdsaleManager', function(accounts) {
             assert.equal(fundAddr, 0x0)
 
             try {
-                await sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 10)
                 assert.isTrue(false)
             } catch(e) {
                 assert.isTrue(true)
@@ -189,7 +257,8 @@ contract('CrowdsaleManager', function(accounts) {
         })
 
         it("Should be not possible to init Ether to campaign by non-owner", async () => {
-            await campaign.init("USD", 1000, 1000000, 1, 0, Date.now(), Date.now() + 6000, { from: nonOwner })
+            let currentTime = await clock.time.call()
+            await campaign.init("USD", 1000, 1000000, 1, 0, currentTime, (currentTime.plus(6000)), { from: nonOwner })
 
             let isRunning = await campaign.isRunning.call()
             assert.isFalse(isRunning)
@@ -226,7 +295,8 @@ contract('CrowdsaleManager', function(accounts) {
         })
 
         it("Should be possible to init campaign by owner", async () => {
-            await campaign.init("USD", 1000, 1000000, 1, 0, (Date.now() - 6000) / 1000, (Date.now() + 60000)/1000 , { from: tokenOwner })
+            let currentTime = await clock.time.call()
+            await campaign.init("USD", 1000, 1000000, 1, 0, (currentTime.minus(6000)), (currentTime.plus(60000)), { from: tokenOwner })
 
             let goal = await campaign.getGoal.call()
             assert.equal("USD", web3.toUtf8(goal[0]))
@@ -240,7 +310,8 @@ contract('CrowdsaleManager', function(accounts) {
         })
 
         it("Should be not possible to init campaign by owner once again", async () => {
-            await campaign.init("DJHF", 1, 10, 1, 0, Date.now() - 6000, Date.now() + 6000, {from: tokenOwner})
+            let currentTime = await clock.time.call()
+            await campaign.init("DJHF", 1, 10, 1, 0, (currentTime.minus(60000)), (currentTime.plus(6000)), { from: tokenOwner })
 
             let goal = await campaign.getGoal.call()
             assert.equal("USD", web3.toUtf8(goal[0]))
@@ -252,7 +323,7 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("Should be possible to send Ether to crowdsale", async () => {
             try {
-                await sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 10)
                 let balance = await platform.balanceOf.call(etherSenderAddr, TOKEN_1)
                 assert.equal(balance.toNumber(), 10)
             } catch (e) {
@@ -262,7 +333,7 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("Should be possible to send Ether to crowdsale twice", async () => {
             try {
-                await sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 10)
                 let balance = await platform.balanceOf.call(etherSenderAddr, TOKEN_1)
                 assert.equal(balance.toNumber(), 20)
             } catch(e) {
@@ -282,6 +353,319 @@ contract('CrowdsaleManager', function(accounts) {
 
         it("revert", reverter.revert)
     })
+
+    context("TimeLimited crowdsale run cycle", function () {
+        const TOKEN_SYMBOL_TIME_LIMITED = "TLCT"
+        const timeLimitedCrowdsale = "TimeLimitedCrowdsaleFactory"
+
+        const etherSenderAddr = accounts[0]
+
+        context("successfull sale", function () {
+            let campaign
+
+            it("prepare", async () => {
+                let createdTokenTx = await tokenExtension.createAssetWithoutFee(TOKEN_SYMBOL_TIME_LIMITED, TOKEN_SYMBOL_TIME_LIMITED, "description of TLCT", 1000, 1, true, 0x0, { from: tokenOwner })
+                let tokenEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], createdTokenTx, "AssetCreated"))[0]
+                assert.isDefined(tokenEvent)
+
+                let startCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_SYMBOL_TIME_LIMITED, timeLimitedCrowdsale, { from: tokenOwner })
+                let crowdsaleEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], startCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
+                assert.isDefined(crowdsaleEvent)
+
+                campaign = await TimeLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
+            })
+
+            it("should not show token crowdsale as started", async () => {
+                let isRunning = await campaign.isRunning.call()
+                assert.isFalse(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isTrue(isFailed)
+            })
+
+            it("should show started after starting token crowdsale", async () => {
+                let currentTime = await clock.time.call()
+
+                await campaign.init("USD", 1000, 1000000, 1, 0, (currentTime.minus(6000)), (currentTime.plus(60000)), { from: tokenOwner })
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("should be able to sale tokens for ether", async () => {
+                await campaign.enableEtherSale(fund, { from: tokenOwner })
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                try {
+                    await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                    assert.isTrue(true)
+                } catch (e) {
+                    assert.isTrue(false)
+                }
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+            })
+
+            it("should fullfill crowdsale goal before final date", async () => {
+                try {
+                    await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 1000)
+                    assert.isTrue(true)
+                } catch (e) {
+                    assert.isTrue(false)
+                }
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isTrue(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("should show a crowdsale as finished after final date has reached", async () => {
+                await timeMachine.jump(65000)
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isFalse(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isTrue(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("revert", reverter.revert)
+        })
+
+        context("failed sale", function () {
+            let campaign
+
+            it("prepare", async () => {
+                let createdTokenTx = await tokenExtension.createAssetWithoutFee(TOKEN_SYMBOL_TIME_LIMITED, TOKEN_SYMBOL_TIME_LIMITED, "description of TLCT", 1000, 1, true, 0x0, { from: tokenOwner })
+                let tokenEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], createdTokenTx, "AssetCreated"))[0]
+                assert.isDefined(tokenEvent)
+
+                let startCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_SYMBOL_TIME_LIMITED, timeLimitedCrowdsale, { from: tokenOwner })
+                let crowdsaleEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], startCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
+                assert.isDefined(crowdsaleEvent)
+
+                campaign = await TimeLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
+            })
+
+            it("should be able to sale tokens for ether", async () => {
+                let currentTime = await clock.time.call()
+
+                await campaign.init("USD", 1000, 1000000, 1, 0, (currentTime.minus(6000)), (currentTime.plus(60000)), { from: tokenOwner })
+                await campaign.enableEtherSale(fund, { from: tokenOwner })
+
+                try {
+                    await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                    assert.isTrue(true)
+                } catch (e) {
+                    assert.isTrue(false)
+                }
+            })
+
+            it("should not fullfill crowdsale goal before final date", async () => {
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("should show a crowdsale as failed after final date has reached", async () => {
+                let currentTime = await clock.time.call()
+                await timeMachine.jump(60000)
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isFalse(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isTrue(isFailed)
+            })
+
+            it("revert", reverter.revert)
+        })
+    })
+
+    context("BlockLimited crowdsale run cycle", function () {
+        const TOKEN_SYMBOL_BLOCK_LIMITED = "BLCT"
+        const blockLimitedCrowdsale = "BlockLimitedCrowdsaleFactory"
+
+        const etherSenderAddr = accounts[0]
+        const blockLength = 10
+
+        context("successfull sale", function () {
+            let campaign
+
+            it("prepare", async () => {
+                let createdTokenTx = await tokenExtension.createAssetWithoutFee(TOKEN_SYMBOL_BLOCK_LIMITED, TOKEN_SYMBOL_BLOCK_LIMITED, "description of BLCT", 1000, 1, true, 0x0, { from: tokenOwner })
+                let tokenEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], createdTokenTx, "AssetCreated"))[0]
+                assert.isDefined(tokenEvent)
+
+                let startCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_SYMBOL_BLOCK_LIMITED, blockLimitedCrowdsale, { from: tokenOwner })
+                let crowdsaleEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], startCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
+                assert.isDefined(crowdsaleEvent)
+
+                campaign = await BlockLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
+            })
+
+            it("should not show token crowdsale as started", async () => {
+                let isRunning = await campaign.isRunning.call()
+                assert.isFalse(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isTrue(isFailed)
+            })
+
+            it("should show started after starting token crowdsale", async () => {
+                let currentBlockNumber = await testrpc.getCurrentBlockNumber()
+
+                await campaign.init("USD", 1000, 1000000, 1, 0, currentBlockNumber - 1, currentBlockNumber + blockLength, { from: tokenOwner })
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("should be able to sale tokens for ether", async () => {
+                await campaign.enableEtherSale(fund, { from: tokenOwner })
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                try {
+                    await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                    assert.isTrue(true)
+                } catch (e) {
+                    assert.isTrue(false)
+                }
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+            })
+
+            it("should fullfill crowdsale goal before final block", async () => {
+                try {
+                    await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 1000)
+                    assert.isTrue(true)
+                } catch (e) {
+                    assert.isTrue(false)
+                }
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isTrue(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("should show a crowdsale as finished after final block has reached", async () => {
+                await testrpc.mineBlock(blockLength + 2)
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isFalse(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isTrue(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("revert", reverter.revert)
+        })
+
+        context("failed sale", function () {
+            let campaign
+
+            it("prepare", async () => {
+                let createdTokenTx = await tokenExtension.createAssetWithoutFee(TOKEN_SYMBOL_BLOCK_LIMITED, TOKEN_SYMBOL_BLOCK_LIMITED, "description of TLCT", 1000, 1, true, 0x0, { from: tokenOwner })
+                let tokenEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], createdTokenTx, "AssetCreated"))[0]
+                assert.isDefined(tokenEvent)
+
+                let startCrowdsaleTx = await tokenExtension.createCrowdsaleCampaign(TOKEN_SYMBOL_BLOCK_LIMITED, blockLimitedCrowdsale, { from: tokenOwner })
+                let crowdsaleEvent = (await eventsHelper.findEvent([tokenExtensionEmitter], startCrowdsaleTx, "CrowdsaleCampaignCreated"))[0]
+                assert.isDefined(crowdsaleEvent)
+
+                campaign = await TimeLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
+            })
+
+            it("should be able to sale tokens for for ether", async () => {
+                let currentBlockNumber = await testrpc.getCurrentBlockNumber()
+
+                await campaign.init("USD", 1000, 1000000, 1, 0, currentBlockNumber - 1, currentBlockNumber + blockLength, { from: tokenOwner })
+                await campaign.enableEtherSale(fund, { from: tokenOwner })
+
+                try {
+                    await testrpc.sendEtherPromise(etherSenderAddr, campaign.address, 10)
+                    assert.isTrue(true)
+                } catch (e) {
+                    assert.isTrue(false)
+                }
+            })
+
+            it("should not fullfill crowdsale goal before final block", async () => {
+                let isRunning = await campaign.isRunning.call()
+                assert.isTrue(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isFalse(isFailed)
+            })
+
+            it("should show a crowdsale as failed after final block has reached", async () => {
+                await testrpc.mineBlock(blockLength + 2)
+
+                let isRunning = await campaign.isRunning.call()
+                assert.isFalse(isRunning)
+
+                let isSuccessed = await campaign.isSuccessed.call()
+                assert.isFalse(isSuccessed)
+
+                let isFailed = await campaign.isFailed.call()
+                assert.isTrue(isFailed)
+            })
+
+            it("revert", reverter.revert)
+        })
+    })
+
 
     context("aggregation methods: tokens on crowdsale", function () {
         const TOKEN_SYMBOL_1 = "TS1"
@@ -303,7 +687,8 @@ contract('CrowdsaleManager', function(accounts) {
             let campaign = await TimeLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
 
             try {
-                await campaign.init("USD", 1000, 1000000, 1, 0, (Date.now() - 6000) / 1000, (Date.now() + 60000)/1000 , { from: tokenOwner })
+                let currentTime = await clock.time.call()
+                await campaign.init("USD", 1000, 1000000, 1, 0, (currentTime.minus(6000)), (currentTime.plus(60000)), { from: tokenOwner })
             } catch (e) {
                 assert.isTrue(false)
             }
@@ -326,7 +711,8 @@ contract('CrowdsaleManager', function(accounts) {
             let campaign = await TimeLimitedCrowdsale.at(crowdsaleEvent.args.campaign)
 
             try {
-                await campaign.init("EUR", 1000, 1000000, 1, 0, (Date.now() - 6000) / 1000, (Date.now() + 60000)/1000 , { from: tokenOwner })
+                let currentTime = await clock.time.call()
+                await campaign.init("EUR", 1000, 1000000, 1, 0, (currentTime.minus(6000)), (currentTime.plus(60000)), { from: tokenOwner })
             } catch (e) {
                 assert.isTrue(false)
             }

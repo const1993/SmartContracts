@@ -73,11 +73,8 @@ const errorsLibrary = {
     EXCHANGE_FEE_TRANSFER_FAILED: errorScope.exchange + 11,
 
     EXCHANGE_STOCK_NOT_FOUND: errorScope.exchangeStock + 0,
-    EXCHANGE_STOCK_INVALID_PARAMETER: errorScope.exchangeStock + 1,
-    EXCHANGE_STOCK_INVALID_INVOCATION: errorScope.exchangeStock + 2,
-    EXCHANGE_STOCK_ADD_CONTRACT: errorScope.exchangeStock + 3,
-    EXCHANGE_STOCK_UNABLE_CREATE_EXCHANGE: errorScope.exchangeStock + 4,
-    EXCHANGE_STOCK_ALREADY_EXISTS: errorScope.exchangeStock + 6,
+    ERROR_EXCHANGE_STOCK_INTERNAL: errorScope.exchangeStock + 1,
+    ERROR_EXCHANGE_STOCK_UNKNOWN_SYMBOL: errorScope.exchangeStock + 2,
 
     VOTE_INVALID_PARAMETER: errorScope.vote + 0,
     VOTE_INVALID_INVOCATION: errorScope.vote + 1,

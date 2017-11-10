@@ -221,7 +221,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function setupAssetOwningListener(address _listener) onlyEventsAdmin public returns (uint) {
         owningListener = _listener;
@@ -881,7 +881,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function _delegateAssetOwnerAdded(bytes32 _symbol, address _owner) private {
         if (owningListener != 0x0) {
@@ -890,7 +890,7 @@ contract ChronoBankPlatform is Object, ChronoBankPlatformEmitter {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function _delegateAssetOwnerRemoved(bytes32 _symbol, address _owner) private {
         if (owningListener != 0x0) {

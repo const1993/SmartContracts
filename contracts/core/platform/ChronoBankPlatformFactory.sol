@@ -6,10 +6,11 @@ import "../common/Owned.sol";
 import "../contracts/ContractsManagerInterface.sol";
 
 /**
-* @dev TODO
+* @title Implementation of platform factory to create exactly ChronoBankPlatform contract instances.
 */
 contract ChronoBankPlatformFactory is Owned {
 
+    /** @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES */
     address ownershipResolver;
 
     function ChronoBankPlatformFactory(address _ownershipResolver) public {
@@ -23,6 +24,15 @@ contract ChronoBankPlatformFactory is Owned {
         ownershipResolver = _ownershipResolver;
     }
 
+    /**
+    * @dev Creates a brand new platform and transfers platform ownership to msg.sender
+    *
+    * @param owner (not used)
+    * @param eventsHistory events history contract address
+    * @param eventsHistoryAdmin events admin address
+    *
+    * @return new platform address
+    */
     function createPlatform(address, MultiEventsHistory eventsHistory, address eventsHistoryAdmin) public returns(address) {
         ChronoBankPlatform platform = new ChronoBankPlatform();
         eventsHistory.authorize(platform);

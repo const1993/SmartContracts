@@ -22,7 +22,7 @@ contract OwnedContract {
 
 
 /**
-* @dev Defines implementation for managing platforms creation and tracking system's platforms.
+* @title Defines implementation for managing platforms creation and tracking system's platforms.
 * Some methods could require to pay additional fee in TIMEs during their invocation.
 */
 contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmitter, PlatformsManagerInterface {
@@ -40,16 +40,16 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
 
     /** Storage keys */
 
-    /** address of platforms factory contract */
+    /** @dev address of platforms factory contract */
     StorageInterface.Address platformsFactory;
 
-    /** mapping (address => set(address)) stands for (owner => set(platform)) */
+    /** @dev mapping (address => set(address)) stands for (owner => set(platform)) */
     StorageInterface.AddressesSetMapping ownerToPlatforms;
 
-    /** set(address) stands for set(platform) */
+    /** @dev set(address) stands for set(platform) */
     StorageInterface.OrderedAddressesSet platforms;
 
-    /** mapping (address => uint256) stands for (platform => index) */
+    /** @dev mapping (address => uint256) stands for (platform => index) */
     StorageInterface.AddressUIntMapping syncPlatformToSymbolIdx;
 
     /**
@@ -379,6 +379,9 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
         PlatformsManagerEmitter(getEventsHistory()).emitPlatformRequested(_platform, _tokenExtension, sender);
     }
 
+    /**
+    * @dev DEPRECATED. WILL BE REMOVED IN FUTURE RELEASES
+    */
     function _emitPlatformReplaced(address _fromPlatform, address _toPlatform) private {
         PlatformsManagerEmitter(getEventsHistory()).emitPlatformReplaced(_fromPlatform, _toPlatform);
     }

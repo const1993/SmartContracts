@@ -10,7 +10,8 @@ import "../core/common/Deposits.sol";
 import "../reward/RewardsEmitter.sol";
 
 /**
-* @dev TODO
+* @title Defines interface for managers that can store any tokens and use for that purpose wallets
+* instead of keeping tokens on their own address. Keeps this contracts updatable with ease.
 */
 contract WalletBackedManagerInterface {
     function wallet() constant returns (address);
@@ -120,7 +121,9 @@ contract Rewards is Deposits, RewardsEmitter {
     }
 
     /**
-    * @dev TODO
+    * @dev Gets wallet address used to store tokens
+    *
+    * @return wallet address
     */
     function wallet() public constant returns (address) {
         return store.get(walletStorage);

@@ -3,34 +3,35 @@ pragma solidity ^0.4.11;
 import '../core/event/MultiEventsHistoryAdapter.sol';
 
 /**
-* Emitter with support of events history for PlatformsManager
+* @title Emitter with support of events history for PlatformsManager
 */
 contract PlatformsManagerEmitter is MultiEventsHistoryAdapter {
 
     /**
-    * @dev TODO
+    * @dev Event for attaching a platform to the system
     */
     event PlatformAttached(address indexed self, address platform, address indexed by);
 
     /**
-    * @dev TODO
+    * @dev Event for detaching a platform from the system
     */
     event PlatformDetached(address indexed self, address platform, address indexed by);
 
     /**
-    * @dev TODO
+    * @dev Event for creating a platform
     */
     event PlatformRequested(address indexed self, address platform, address tokenExtension, address indexed by);
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN FUTURE RELEASES
     */
     event PlatformReplaced(address indexed self, address fromPlatform, address toPlatform);
 
     /**
-    * @dev TODO
+    * @dev Event for errors
     */
     event Error(address indexed self, uint errorCode);
+
 
     /**
     * Emitting events
@@ -48,6 +49,9 @@ contract PlatformsManagerEmitter is MultiEventsHistoryAdapter {
         PlatformRequested(_self(), _platform, _tokenExtension, _by);
     }
 
+    /**
+    * @dev DEPRECATED. WILL BE REMOVED IN FUTURE RELEASES
+    */
     function emitPlatformReplaced( address _fromPlatform, address _toPlatform) {
         PlatformReplaced(_self(), _fromPlatform, _toPlatform);
     }

@@ -8,6 +8,11 @@ import "../platform/ChronoBankAssetProxyInterface.sol";
 import "../../assets/PlatformsManagerInterface.sol";
 import "../../assets/TokenManagementInterface.sol";
 
+
+/**
+* @title Contract serves as a library for AssetsManager to provide implementations for some statistics methods.
+* Since statistics methods are needed no more, they will be removed in future releases.
+*/
 library AssetsManagerAggregations {
 
     using StorageInterface for *;
@@ -23,7 +28,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev Checks if symbol is really in ownership of user
     */
     function isAssetOwner(
         StorageInterface.Config storage store,
@@ -41,7 +46,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev Gets asset from a list of assets for provided user
     */
     function getAssetForOwnerAtIndex(
         address _tokenExtensionAddr,
@@ -66,7 +71,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev Gets a number of assets in ownership of provided user
     */
     function getAssetsForOwnerCount(
         address _tokenExtensionAddr,
@@ -89,7 +94,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function getSystemAssetsForOwnerCount(
         StorageInterface.Config storage store,
@@ -107,7 +112,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function getManagers(
         StorageInterface.Config storage store,
@@ -130,7 +135,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function getManagersForPlatform(
         StorageInterface.Config storage store,
@@ -154,7 +159,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function _copyArrayIntoArray(address[] _origin, address[] _destination, uint _pointer) private returns (uint) {
         for (uint _originIdx = 0; _originIdx < _origin.length && _origin[_originIdx] != 0x0; ++_originIdx) {
@@ -164,7 +169,7 @@ library AssetsManagerAggregations {
     }
 
     /**
-    * @dev TODO
+    * @dev DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     function _numberOfManagers(address _owner, address _platformsManager) private constant returns (uint _count) {
         PlatformsManagerInterface _platformsManagerInterface = PlatformsManagerInterface(_platformsManager);

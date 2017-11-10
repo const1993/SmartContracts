@@ -4,8 +4,17 @@ import "./BaseRouter.sol";
 import "../../core/contracts/ContractsManagerInterface.sol";
 import "./PlatformTokenExtensionGatewayManagerEmitter.sol";
 
+/**
+* @title Lightweight token extension contract that holds platform and contracts manager addresses
+* but contains no implementation: all function calls are redirected to TokenExtensionGateway by
+* delegatecall. This contract also emits events of token extensions.
+*/
 contract TokenExtensionRouter is BaseRouter, PlatformTokenExtensionGatewayManagerEmitter {
+
+    /** @dev address of ContractsManager interface contract */
     address internal contractsManager;
+
+    /** @dev platform address to which token extension is attached */
     address public platform;
 
     function TokenExtensionRouter(address _contractsManager, address _platform) public {

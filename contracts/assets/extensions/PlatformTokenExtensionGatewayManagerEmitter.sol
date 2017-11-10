@@ -3,20 +3,20 @@ pragma solidity ^0.4.11;
 import '../../core/event/MultiEventsHistoryAdapter.sol';
 
 /**
-* Emitter with support of events history for PlatformTokenExtensionGatewayManager
+* @title Emitter with support of events history for TokenExtensionRouter
 */
 contract PlatformTokenExtensionGatewayManagerEmitter is MultiEventsHistoryAdapter {
 
-    /** TODO */
+    /** @dev Event for errors */
     event Error(address indexed self, uint errorCode);
 
-    /** TODO */
+    /** @dev Event for creating an asset */
     event AssetCreated(address indexed self, address platform, bytes32 symbol, address token, address indexed by);
 
-    /** TODO */
+    /** @dev Event for starting token's crowdsale */
     event CrowdsaleCampaignCreated(address indexed self, address platform, bytes32 symbol, address campaign, address indexed by);
 
-    /** TODO */
+    /** @dev Event for removing token's crowdsale */
     event CrowdsaleCampaignRemoved(address indexed self, address platform, bytes32 symbol, address campaign, address indexed by);
 
 

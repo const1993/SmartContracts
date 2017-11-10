@@ -30,7 +30,7 @@ contract EventsHistory {
 
 
 /**
-* AssetsManager is a helper contract which allows centralized access to tokens' management
+* @title AssetsManager is a helper contract which allows centralized access to tokens' management
 * on top of chronobank platforms. It is used in pair with PlatformsManager and provides
 * a creation of token extensions for platforms.
 * Contract also has methods for quick access to token info such as:
@@ -38,7 +38,7 @@ contract EventsHistory {
 * - if token exists in a system,
 * - if a user is a owner of a token.
 *
-* @dev This contract contains statistics getters but they will be removed soon.
+* @dev This contract contains statistics getters but they are deprecated and will be removed soon.
 *
 */
 contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetOwningListener, BaseManager, AssetsManagerEmitter {
@@ -51,25 +51,25 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
 
     /** Storage keys */
 
-    /** address of a token extension factory contract  */
+    /** @dev address of a token extension factory contract  */
     StorageInterface.Address tokenExtensionFactory;
 
-    /** address of a token and proxy factory contract */
+    /** @dev address of a token and proxy factory contract */
     StorageInterface.Address tokenFactory;
 
-    /** mapping (address => address) stands for (platform => tokenExtension) */
+    /** @dev mapping (address => address) stands for (platform => tokenExtension) */
     StorageInterface.AddressAddressMapping platformToExtension;
 
-    /** collection of addresses of token extensions registered in AssetsManager */
+    /** @dev collection of addresses of token extensions registered in AssetsManager */
     StorageInterface.OrderedAddressesSet tokenExtensions;
 
-    /** mapping (address => set(address)) stands for (user => set(platform)) */
+    /** @dev mapping (address => set(address)) stands for (user => set(platform)) */
     StorageInterface.AddressesSetMapping userToParticipatedPlatforms;
 
-    /** mapping (bytes32 => set(bytes32)) stands for (hash(user,platform) => set(tokenSymbol)) */
+    /** @dev mapping (bytes32 => set(bytes32)) stands for (hash(user,platform) => set(tokenSymbol)) */
     StorageInterface.Bytes32SetMapping userWithPlatformToOwnedSymbols;
 
-    /** mapping (bytes32 => set(address)) stands for (hash(tokenSymbol,platform) => set(user)) */
+    /** @dev mapping (bytes32 => set(address)) stands for (hash(tokenSymbol,platform) => set(user)) */
     StorageInterface.AddressesSetMapping symbolWithPlatformToUsers;
 
     /**

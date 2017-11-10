@@ -3,20 +3,20 @@ pragma solidity ^0.4.11;
 import '../core/event/MultiEventsHistoryAdapter.sol';
 
 /**
-* @dev TODO
+* @title Emitter with support of events history for AssetsManager
 */
 contract AssetsManagerEmitter is MultiEventsHistoryAdapter {
 
-    /** TODO */
+    /** error event */
     event Error(address indexed self, uint errorCode);
 
-    /** TODO */
+    /** event for requesting token extension */
     event TokenExtensionRequested(address indexed self, address platform, address tokenExtension);
 
-    /** TODO */
+    /** event for registering token extension */
     event TokenExtensionRegistered(address indexed self, address platform, address tokenExtension);
 
-    /** TODO */
+    /** event for unregistering token extension */
     event TokenExtensionUnregistered(address indexed self, address tokenExtension);
 
     /** Emitting events */

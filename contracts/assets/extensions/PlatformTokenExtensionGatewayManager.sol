@@ -54,7 +54,17 @@ contract OwnedContract {
 }
 
 /**
-* @dev TODO
+* @title Used as a library by TokenExtensionRouter which provides context and variables (platform, contractsManager)
+* when invoke methods of this contract.
+* Since this contract is designed to be used by delegatecall it doesn't inherit from any contract (except FeatureFeeAdapter)
+* and you should be careful when a need will arise to add more functionality by inheritance, because the contract uses
+* storage scheme from TokenExtensionRouter and it should be preserved.
+
+* It's responsibilities are to:
+* - create assets (with and without fee),
+* - create token crowdsale and remove them.
+
+* Some methods might take a fee by TIME tokens.
 */
 contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     uint constant UNAUTHORIZED = 0;
@@ -65,10 +75,10 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     uint constant ERROR_TOKEN_EXTENSION_ASSET_COULD_NOT_BE_REVOKED = 23003;
     uint constant ERROR_TOKEN_EXTENSION_ASSET_OWNER_ONLY = 23004;
 
-    /** TODO */
+    /** @dev platform address. It is initialized only by delegatecall context */
     address internal contractsManager;
 
-    /** TODO */
+    /** @dev platform address. It is initialized only by delegatecall context and 0x0 in other cases */
     address internal platform;
 
     /**
@@ -95,7 +105,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * @dev TODO
+    * @dev Guards methods to be called only by platform owner.
     */
     modifier onlyPlatformOwner {
         if (OwnedContract(platform).contractOwner() == msg.sender ||
@@ -105,7 +115,9 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * @dev TODO
+    * @dev Guards methods to be called only by platform itself.
+    *
+    * DEPRECATED. WILL BE REMOVED IN NEXT RELEASES
     */
     modifier onlyPlatform {
         if (msg.sender == platform ||
@@ -205,6 +217,21 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         return true;
     }
 
+    /**
+    * @dev Creates asset without fee. Performs asset registration in ERC20Manager.
+    * Allowed to be performed only from delegatecall and only by platform owner.
+    * Might take an additional fee in TIME tokens
+    *
+    * @param _symbol new asset's symbol
+    * @param _name asset's name
+    * @param _description description of an asset
+    * @param _value initial balance to issue
+    * @param _decimals decimals
+    * @param _isMint is reissuable
+    * @param _tokenImageIpfsHash asset image IPFS hash
+    *
+    * @return resultCode result code of an operation
+    */
     function createAssetWithoutFee(
         bytes32 _symbol,
         string _name,
@@ -247,6 +274,24 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         return OK;
     }
 
+
+    /**
+    * @dev Creates asset with fee. Performs asset registration in ERC20Manager.
+    * Allowed to be performed only from delegatecall and only by platform owner.
+    * Might take an additional fee in TIME tokens
+    *
+    * @param _symbol new asset's symbol
+    * @param _name asset's name
+    * @param _description description of an asset
+    * @param _value initial balance to issue
+    * @param _decimals decimals
+    * @param _isMint is reissuable
+    * @param _feeAddress fee wallet address
+    * @param _feePercent fee percent value
+    * @param _tokenImageIpfsHash asset image IPFS hash
+    *
+    * @return resultCode result code of an operation
+    */
     function createAssetWithFee(
         bytes32 _symbol,
         string _name,
@@ -292,12 +337,19 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
         return OK;
     }
 
+
+    /**
+    * @dev Gets token and proxy factory
+    *
+    * @return factory address
+    */
     function getTokenFactory() constant returns (TokenFactory) {
         return FactoryProvider(lookupManager("AssetsManager")).getTokenFactory();
     }
 
     /**
-    * Creates crowdsale campaign of a token with provided symbol
+    * @dev Creates crowdsale campaign of a token with provided symbol
+    * Might take an additional fee in TIME tokens
     *
     * @param _symbol a token symbol
     *
@@ -339,7 +391,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * Stops token's crowdsale
+    * @dev Stops token's crowdsale
     *
     * @param _crowdsale a crowdsale address
     *
@@ -363,28 +415,34 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * @dev TODO
+    * @dev Gets an interface for managing assets' ownership
+    *
+    * @return interface of assets ownership manager
     */
     function getAssetOwnershipManager() public constant returns (address) {
         return platform;
     }
 
     /**
-    * @dev TODO
+    * @dev Gets a proxy where possible to reissue assets
+    *
+    * @return interface for reissuing assets
     */
     function getReissueAssetProxy() public constant returns (ReissuableAssetProxyInterface) {
         return ReissuableAssetProxyInterface(platform);
     }
 
     /**
-    * @dev TODO
+    * @dev Gets a proxy where possible to revoke assets
+    *
+    * @return interface for revoking assets
     */
     function getRevokeAssetProxy() public constant returns (RevokableAssetProxyInterface) {
         return RevokableAssetProxyInterface(platform);
     }
 
     /**
-    * @dev TODO
+    * @dev Checks symbol for existance in the system and issue new asset. PRIVATE
     */
     function _prepareAndIssueAssetOnPlatform(bytes32 _symbol, string _name, string _description, uint _value, uint8 _decimals, bool _isMint) private returns (uint) {
         ERC20ManagerInterface _erc20Manager = ERC20ManagerInterface(lookupManager("ERC20Manager"));
@@ -396,7 +454,7 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * @dev TODO
+    * @dev Binds asset with proxy and register it in ERC20Manager. PRIVATE
     */
     function _bindAssetWithToken(TokenFactory _factory, address _asset, bytes32 _symbol, string _name, uint8 _decimals, bytes32 _ipfsHash) private returns (address token) {
         token = _factory.createProxy();
@@ -414,7 +472,11 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * @dev TODO
+    * @dev Creates asset with fee and setup according values. PRIVATE
+    *
+    * @param _factory token factory
+    * @param _feeAddress fee destination address
+    * @param _fee fee percent value
     */
     function _deployAssetWithFee(TokenFactory _factory, address _feeAddress, uint32 _fee) private returns (address _asset) {
         _asset = _factory.createAssetWithFee(this);
@@ -423,7 +485,11 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * @dev TODO
+    * @dev Creates asset without fee. PRIVATE
+    *
+    * @param _factory token factory
+    *
+    * @return _asset created asset address
     */
     function _createAsset(TokenFactory _factory) private returns (address _asset) {
         _asset = _factory.createAsset();
@@ -445,7 +511,11 @@ contract PlatformTokenExtensionGatewayManager is FeatureFeeAdapter {
     }
 
     /**
-    * @dev TODO
+    * @dev Makes search in contractsManager for registered contract by some identifier
+    *
+    * @param _identifier string identifier of a manager
+    *
+    * @return manager address of a manager, 0x0 if nothing was found
     */
     function lookupManager(bytes32 _identifier) constant returns (address manager) {
         manager = ContractsManagerInterface(contractsManager).getContractAddressByType(_identifier);

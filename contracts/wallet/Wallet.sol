@@ -11,7 +11,7 @@
 
 pragma solidity ^0.4.11;
 
-import {ERC20ManagerInterface as ERC20Manager} from "../core/erc20/ERC20ManagerInterface.sol";
+import "../core/erc20/ERC20Manager.sol";
 import {ContractsManagerInterface as ContractsManager} from "../core/contracts/ContractsManagerInterface.sol";
 import "../core/erc20/ERC20Interface.sol";
 import "./WalletEmitter.sol";
@@ -379,21 +379,21 @@ contract Wallet is multiowned {
 
     // constructor - just pass on the owner array to the multiowned and
     // the limit to daylimit
-    function Wallet(address[] _owners, uint _required, address _contractsManager, address _eventsHistory, bool _use2FA, uint _releaseTime) multiowned(_owners, _required)  {
+    function Wallet(address[] _owners,
+        uint _required,
+        address _contractsManager,
+        address _eventsHistory,
+        bool _use2FA,
+        uint _releaseTime)
+    multiowned(_owners, _required)
+    {
+        require(_contractsManager != 0x0);
+        require(_eventsHistory != 0x0);
+
         contractsManager = _contractsManager;
         eventsEmmiter = _eventsHistory;
         use2FA = _use2FA;
         releaseTime = _releaseTime;
-    }
-
-    function getTokenAddresses() constant returns (address[] result) {
-        address erc20Manager = ContractsManager(contractsManager).getContractAddressByType(bytes32("ERC20Manager"));
-        uint counter = ERC20Manager(erc20Manager).tokensCount();
-        result = new address[](counter);
-        for(uint i=0;i<counter;i++) {
-            result[i] = ERC20Manager(erc20Manager).getAddressById(i);
-        }
-        return result;
     }
 
     function getPendings()
@@ -417,25 +417,34 @@ contract Wallet is multiowned {
     }
 
     // kills the contract sending everything to `_to`.
-    function kill(address _to) external returns (uint) {
+    function kill(address _to) external returns (uint errorCode) {
         if(releaseTime > now) {
             return _emitError(WALLET_RELEASE_TIME_ERROR);
         }
-        uint e = confirmAndCheck(sha3(msg.data));
-        if(OK != e) {
-            return _emitError(e);
-        }
-        address[] memory tokens = getTokenAddresses();
-        for(uint i=0;i<tokens.length;i++) {
-            address token = tokens[i];
-            uint balance = ERC20Interface(token).balanceOf(this);
-            if(balance != 0)
-            require(ERC20Interface(token).transfer(_to,balance));
-        }
-        selfdestruct(_to);
-        address walletsManager = ContractsManager(contractsManager).getContractAddressByType(bytes32("WalletsManager"));
-        return WalletsManagerInterface(walletsManager).removeWallet();
 
+        errorCode = confirmAndCheck(sha3(msg.data));
+        if(OK != errorCode) {
+            return _emitError(errorCode);
+        }
+
+        address erc20Manager = lookupManager("ERC20Manager");
+        uint tokenCount = ERC20Manager(erc20Manager).tokensCount();
+
+        for(uint i = 0; i < tokenCount; i++) {
+            address token = ERC20Manager(erc20Manager).getAddressById(i);
+            uint balance = ERC20Interface(token).balanceOf(this);
+            if(balance != 0) {
+                require(ERC20Interface(token).transfer(_to,balance));
+            }
+        }
+
+        address walletsManager = lookupManager("WalletsManager");
+        if (WalletsManagerInterface(walletsManager).removeWallet() != OK) {
+            revert();
+        }
+
+        selfdestruct(_to);
+        return OK;
     }
 
     // gets called when no other function matches
@@ -457,7 +466,7 @@ contract Wallet is multiowned {
             return _emitError(WALLET_RELEASE_TIME_ERROR);
         }
         if(use2FA) {
-            address walletsManager = ContractsManager(contractsManager).getContractAddressByType(bytes32("WalletsManager"));
+            address walletsManager = lookupManager("WalletsManager");
             uint oraclePrice = WalletsManagerInterface(walletsManager).getOraclePrice();
             address oracleAddress = WalletsManagerInterface(walletsManager).getOracleAddress();
             if(oraclePrice == 0 || oracleAddress == address(0)) {
@@ -475,7 +484,7 @@ contract Wallet is multiowned {
                 return _emitError(WALLET_INSUFFICIENT_BALANCE);
             }
         } else {
-            address erc20Manager = ContractsManager(contractsManager).getContractAddressByType(bytes32("ERC20Manager"));
+            address erc20Manager = lookupManager("ERC20Manager");
             if(ERC20Manager(erc20Manager).getTokenAddressBySymbol(_symbol) == 0)
             return _emitError(WALLET_UNKNOWN_TOKEN_TRANSFER);
             else {
@@ -509,7 +518,7 @@ contract Wallet is multiowned {
                 require(m_txs[_h].to.send(m_txs[_h].value));
             }
             else {
-                address erc20Manager = ContractsManager(contractsManager).getContractAddressByType(bytes32("ERC20Manager"));
+                address erc20Manager = lookupManager("ERC20Manager");
                 address token = ERC20Manager(erc20Manager).getTokenAddressBySymbol(m_txs[_h].symbol);
                 require(ERC20Interface(token).transfer(m_txs[_h].to,m_txs[_h].value));
             }
@@ -518,6 +527,11 @@ contract Wallet is multiowned {
             return OK;
         }
         return _emitError(WALLET_INVALID_INVOCATION);
+    }
+
+    function lookupManager(bytes32 _identifier) internal constant returns (address manager) {
+        manager =  ContractsManager(contractsManager).getContractAddressByType(_identifier);
+        require(manager != 0x0);
     }
 
     // INTERNAL METHODS

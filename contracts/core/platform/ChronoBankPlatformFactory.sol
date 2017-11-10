@@ -26,12 +26,6 @@ contract ChronoBankPlatformFactory is Owned {
 
     /**
     * @dev Creates a brand new platform and transfers platform ownership to msg.sender
-    *
-    * @param owner (not used)
-    * @param eventsHistory events history contract address
-    * @param eventsHistoryAdmin events admin address
-    *
-    * @return new platform address
     */
     function createPlatform(address, MultiEventsHistory eventsHistory, address eventsHistoryAdmin) public returns(address) {
         ChronoBankPlatform platform = new ChronoBankPlatform();

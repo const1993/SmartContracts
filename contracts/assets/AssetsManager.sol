@@ -308,6 +308,8 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
     * @dev Gets an associated token extension address with provided platform. If no token extension was found
     * then return 0x0.
     *
+    * @param _platform platform address for associated token extension
+    *
     * @return address of found token extension
     */
     function getTokenExtension(address _platform) public constant returns (address) {
@@ -488,9 +490,6 @@ contract AssetsManager is AssetsManagerInterface, TokenExtensionRegistry, AssetO
     /**
     * @dev Binds some internal variables during token extension setup.
     * PRIVATE
-    *
-    * @param _platform
-    * @param _tokenExtension
     */
     function _setupTokenExtension(address _platform, address _tokenExtension) private {
         assert(EventsHistory(getEventsHistory()).authorize(_tokenExtension));

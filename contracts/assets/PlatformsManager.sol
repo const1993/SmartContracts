@@ -102,7 +102,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     *
     * @param _user associated owner of platforms
     *
-    * @result number of platforms owned by user
+    * @return number of platforms owned by user
     */
     function getPlatformsForUserCount(address _user) public constant returns (uint) {
         return store.count(ownerToPlatforms, bytes32(_user));
@@ -113,7 +113,7 @@ contract PlatformsManager is FeatureFeeAdapter, BaseManager, PlatformsManagerEmi
     *
     * @param _user associated owner of platforms
     *
-    * @result _platforms list of platforms owned by user
+    * @return _platforms list of platforms owned by user
     */
     function getPlatformsMetadataForUser(address _user) public constant returns (address[] _platforms) {
         _platforms = store.get(ownerToPlatforms, bytes32(_user));

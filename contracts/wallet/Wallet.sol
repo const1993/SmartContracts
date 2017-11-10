@@ -430,7 +430,7 @@ contract Wallet is multiowned {
             address token = tokens[i];
             uint balance = ERC20Interface(token).balanceOf(this);
             if(balance != 0)
-            ERC20Interface(token).transfer(_to,balance);
+            require(ERC20Interface(token).transfer(_to,balance));
         }
         selfdestruct(_to);
         address walletsManager = ContractsManager(contractsManager).getContractAddressByType(bytes32("WalletsManager"));
@@ -511,7 +511,7 @@ contract Wallet is multiowned {
             else {
                 address erc20Manager = ContractsManager(contractsManager).getContractAddressByType(bytes32("ERC20Manager"));
                 address token = ERC20Manager(erc20Manager).getTokenAddressBySymbol(m_txs[_h].symbol);
-                ERC20Interface(token).transfer(m_txs[_h].to,m_txs[_h].value);
+                require(ERC20Interface(token).transfer(m_txs[_h].to,m_txs[_h].value));
             }
             _emitMultiTransact(msg.sender, _h, m_txs[_h].value, m_txs[_h].to, m_txs[_h].symbol);
             delete m_txs[_h];

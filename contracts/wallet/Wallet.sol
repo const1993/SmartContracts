@@ -327,7 +327,7 @@ contract multiowned is WalletEmitter {
     }
 
     function _emitOwnerRemoved(address oldOwner) {
-        Wallet(getEventsHistory()).emitOwnerAdded(oldOwner);
+        Wallet(getEventsHistory()).emitOwnerRemoved(oldOwner);
     }
 
     function _emitRequirementChanged(uint newRequirement) {

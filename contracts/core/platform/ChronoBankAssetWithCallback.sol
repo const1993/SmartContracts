@@ -2,11 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./ChronoBankAsset.sol";
 import "../common/Owned.sol";
-import "../erc223/ERC223ReceiverInterface.sol";
-
-contract ChronoBankAssetWithCallbackListener is ERC223ReceiverInterface {
-
-}
+import "./ChronoBankAssetWithCallbackListener.sol";
 
 /**
  * @title ChronoBank Asset With Callback implementation contract.

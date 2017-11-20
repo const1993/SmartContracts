@@ -46,10 +46,11 @@ contract ChronoBankAssetWithCallback is ChronoBankAsset, Owned {
             return;
         }
 
-        listenersCount++;
         listeners[listenersCount] = _listener;
         listenerIndexs[_listener] = listenersCount;
         listenersData[_listener] = _data;
+
+        listenersCount++;
     }
 
     /**
@@ -118,8 +119,7 @@ contract ChronoBankAssetWithCallback is ChronoBankAsset, Owned {
         for (uint i = 0; i < listenersCount; i++) {
             // Make sure that `listeners` list has no gaps and always reorganized
             address listener = listeners[i];
-            bytes memory listenerData = getListenerData(listener);
-            ChronoBankAssetWithCallbackListener(listener).tokenFallback(_from, _value, listenerData);
+            ChronoBankAssetWithCallbackListener(listener).tokenFallback(_from, _value, listenersData[listener]);
         }
     }
 

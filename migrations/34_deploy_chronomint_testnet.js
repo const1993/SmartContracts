@@ -9,7 +9,6 @@ var KrakenPriceTicker = artifacts.require("./KrakenPriceTicker.sol");
 var StorageManager = artifacts.require("./StorageManager.sol");
 var FakePriceTicker = artifacts.require("./FakePriceTicker.sol");
 var Clock = artifacts.require("./Clock.sol");
-var ERC223ReceiverTest = artifacts.require("./ERC223ReceiverTest.sol");
 
 module.exports = function(deployer,network) {
   if(network === 'development' || network === 'test') {

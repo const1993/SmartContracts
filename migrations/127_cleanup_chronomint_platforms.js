@@ -21,8 +21,6 @@ module.exports = function(deployer, network, accounts) {
         var platforms = []
 
         return Promise.resolve()
-        // .then(() => platformsManager.getPlatformsMetadataForUser.call(systemOwner))
-        // .then(_platformsMetas => platforms = _platformsMetas[0])
         .then(() => {
             return Promise.resolve()
             .then(() => platformsManager.getPlatformsForUserCount.call(systemOwner))
@@ -43,7 +41,6 @@ module.exports = function(deployer, network, accounts) {
         .then(() => {
             return Promise.resolve()
             .then(() => {
-                console.log(platforms);
                 var tokensPromise = Promise.resolve()
                 for (var platformIdx = 0; platformIdx < platforms.length; ++platformIdx) {
                     (function() {
@@ -53,7 +50,6 @@ module.exports = function(deployer, network, accounts) {
                         .then(() => assetsManager.getTokenExtension.call(_platformAddr))
                         .then(_addr => {
                             if (_addr != 0) {
-                                console.log("token ext for addr", _addr, _platformAddr);
                                 return assetsManager.unregisterTokenExtension(_addr)
                             }
                         })

@@ -15,7 +15,9 @@ const errorScope = {
     walletsmanager: 14000,
     chronobankplatform: 15000,
     platforms: 21000,
-    tokenextension: 23000
+    tokenextension: 23000,
+    poll_v2: 26000,
+    vote_v2: 27000,
 }
 
 const errorsLibrary = {
@@ -179,6 +181,12 @@ const errorsLibrary = {
     TOKEN_EXTENSION_CANNOT_CLAIM_ASSET_OWNERSHIP: errorScope.tokenextension + 55,
 
     FEATURE_IS_UNAVAILABE: 22000,
+
+    POLL_BACKEND_INVALID_INVOCATION: errorScope.poll_v2 + 1,
+    POLL_BACKEND_NO_SHARES: errorScope.poll_v2 + 2,
+    POLL_BACKEND_INVALID_PARAMETER: errorScope.poll_v2 + 3,
+
+    VOTING_ACTIVE_POLL_LIMIT_REACHED: errorScope.vote_v2 + 1,
 }
 
 module.exports = errorsLibrary

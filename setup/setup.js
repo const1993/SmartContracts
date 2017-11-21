@@ -22,6 +22,7 @@ const UserManager = artifacts.require("./UserManager.sol")
 const MultiEventsHistory = artifacts.require('./MultiEventsHistory.sol')
 const ProxyFactory = artifacts.require("./ProxyFactory.sol")
 const StorageManager = artifacts.require('StorageManager.sol')
+const VotingManager = artifacts.require('VotingManager.sol')
 const VoteActor = artifacts.require("./VoteActor.sol");
 const PollManager = artifacts.require("./PollManager.sol");
 const PollDetails = artifacts.require("./PollDetails.sol");
@@ -37,6 +38,7 @@ const contractTypes = {
   ExchangeManager: "ExchangeManager", // ExchangeManager
   TrackersManager: "TrackersManager", // TrackersManager
   Voting: "PollManager", // Voting
+  VotingManager: "VotingManager", // Voting v.2
   Rewards: "Rewards", // Rewards
   AssetsManager: "AssetsManager", // AssetsManager
   TimeHolder: "TimeHolder", //TimeHolder
@@ -62,6 +64,7 @@ let shareable
 let erc20Manager
 let rewards
 let rewardsWallet
+let votingManager
 let voteActor
 let pollManager
 let pollDetails
@@ -122,6 +125,7 @@ var setup = function (callback) {
       ExchangeManager.deployed(),
       Rewards.deployed(),
       RewardsWallet.deployed(),
+      VotingManager.deployed(),
       VoteActor.deployed(),
       PollManager.deployed(),
       PollDetails.deployed(),
@@ -153,6 +157,7 @@ var setup = function (callback) {
       exchangeManager,
       rewards,
       rewardsWallet,
+      votingManager,
       voteActor,
       pollManager,
       pollDetails,
@@ -186,6 +191,7 @@ var setup = function (callback) {
     module.exports.chronoBankAssetProxy = chronoBankAssetProxy
     module.exports.chronoBankAssetWithFee = chronoBankAssetWithFee
     module.exports.chronoBankAssetWithFeeProxy = chronoBankAssetWithFeeProxy
+    module.exports.votingManager = votingManager // voting v.2
     module.exports.vote = { manager: pollManager, details: pollDetails, actor: voteActor }
     module.exports.multiEventsHistory = multiEventsHistory
     module.exports.storageManager = storageManager
@@ -201,5 +207,19 @@ var setup = function (callback) {
   })
 }
 
+let setupPromise = async () => {
+    return new Promise((resolve,reject) => {
+        setup((e) => {
+            if (e === undefined || e === null) {
+                resolve()
+            } else {
+                reject(e)
+            }
+        })
+    })
+}
+
 module.exports.setup = setup
+module.exports.setupPromise = setupPromise
+
 module.exports.contractTypes = contractTypes

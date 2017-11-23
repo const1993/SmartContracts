@@ -68,28 +68,24 @@ contract('Wallets Manager', function(accounts) {
 
     })
 
-    context("CRUD test", function(){
+    context("CRUD test", async () => {
 
-        it("can create new MultiSig Wallet contract", function() {
-            return Setup.walletsManager.createWallet.call([owner,owner1],2, 0).then(function(r1) {
-                return Setup.walletsManager.createWallet([owner,owner1],2, 0, {
-                    from: owner,
-                    gas: 3000000
-                }).then((tx) => {
-                    const walletCreatedEvents = eventsHelper.extractEvents(tx, "WalletCreated")
-                    assert.notEqual(walletCreatedEvents.length, 0)
-                    const walletAddress = walletCreatedEvents[0].args.wallet
-                    return Wallet.at(walletAddress).then(function(instance) {
-                        return instance.m_required.call().then(function(r2) {
-                            return instance.m_numOwners.call().then(function(r3) {
-                                assert.equal(r1, ErrorsEnum.OK)
-                                assert.equal(r2, 2)
-                                assert.equal(r3, 2)
-                            })
-                        })
-                    })
-                })
-            })
+        it("can create new MultiSig Wallet contract", async () => {
+            let resultCode = await Setup.walletsManager.createWallet.call([owner,owner1],2, 0);
+            assert.equal(resultCode, ErrorsEnum.OK);
+
+            let createWalletTx = await Setup.walletsManager.createWallet([owner,owner1],2, 0);
+            let walletCreatedEvents = eventsHelper.extractEvents(createWalletTx, "WalletCreated");
+            assert.equal(walletCreatedEvents.length, 1);
+
+            let walletAddress = walletCreatedEvents[0].args.wallet;
+            let wallet = await Wallet.at(walletAddress);
+
+            let m_required = await wallet.m_required.call();
+            assert.equal(m_required, 2);
+
+            let m_numOwners = await wallet.m_numOwners.call();
+            assert.equal(m_numOwners, 2);
         })
 
         it("doesn't allow add not owned Multisig Wallet contract", function() {
@@ -168,10 +164,10 @@ contract('Wallets Manager', function(accounts) {
             })
         })
 
-        it("shouldn't be able to multisig send ETH if balance not enough", function() {
-            return wallet.transfer.call(owner3, 6000, 'ETH').then(function (r) {
-                assert.equal(r,14019)
-            })
+        it("shouldn't be able to multisig send ETH if balance not enough", async () => {
+          let balance  = web3.eth.getBalance(wallet.address);
+          let r = await wallet.transfer.call(owner3, 500000000000000 + 1, "ETH");
+          assert.equal(r, 14019)
         })
 
         it("should be able to multisig send ERC20", function() {
@@ -195,74 +191,76 @@ contract('Wallets Manager', function(accounts) {
             })
         })
 
-        it("shouldn't be able to multisig send ERC20 if balance no enough", function() {
-            return wallet.transfer.call(owner3,6000,SYMBOL, {from: owner}).then(function(r) {
-                assert.equal(r,14019)
-            })
+        it("shouldn't be able to multisig send ERC20 if balance no enough", async () => {
+            let r = await wallet.transfer.call(owner3, 6000, SYMBOL, {from: wallet.address});
+            assert.equal(r, ErrorsEnum.WALLET_INSUFFICIENT_BALANCE);
         })
 
-        it("should multisig change owner", function() {
-            return wallet.isOwner.call(owner1)
-                .then(r => assert.isTrue(r))
-                .then(() => wallet.isOwner.call(owner2))
-                .then(r => assert.isFalse(r))
-                .then(() => wallet.changeOwner(owner1, owner2))
-                // .then(tx => console.log(tx.logs))
-                // .then(() => wallet.getPendings.call())
-                // .then(pendings => console.log(pendings))
-                .then(() => wallet.changeOwner(owner1, owner2, {from:owner1}))
-                .then(() => wallet.isOwner.call(owner1))
-                .then(r => assert.isFalse(r))
-                .then(() => wallet.isOwner.call(owner2))
-                .then(r => assert.isTrue(r))
+        it("should multisig change owner", async () => {
+          assert.isTrue(await wallet.isOwner.call(owner1));
+          assert.isFalse(await wallet.isOwner.call(owner2));
+
+          let tx = await wallet.changeOwner(owner1, owner2);
+          let events = eventsHelper.extractEvents(tx, "MultisigWalletConfirmationNeeded");
+          assert.equal(events.length, 1);
+
+          let operation = events[0].args.operation;
+
+          await wallet.confirm(operation, {from: owner1});
+
+          assert.isFalse(await wallet.isOwner.call(owner1));
+          assert.isTrue(await wallet.isOwner.call(owner2));
         })
 
-        it("should multisig add owner", function() {
-            return wallet.isOwner.call(owner1).then(function(r) {
-                assert.isFalse(r)
-                return wallet.addOwner(owner1).then(function () {
-                    return wallet.addOwner(owner1, {from:owner2}).then(function () {
-                        return wallet.isOwner.call(owner1).then(function (r) {
-                            assert.isTrue(r)
-                        })
-                    })
-                })
-            })
+        it("should multisig add owner", async () => {
+          assert.isTrue(await wallet.isOwner.call(owner));
+          assert.isFalse(await wallet.isOwner.call(owner1));
+          assert.isTrue(await wallet.isOwner.call(owner2));
+
+          let tx = await wallet.addOwner(owner1);
+          let operation = getOperationFromMultisigTx(tx);
+
+          await wallet.confirm(operation, {from: owner2});
+
+          assert.isTrue(await wallet.isOwner.call(owner));
+          assert.isTrue(await wallet.isOwner.call(owner1));
+          assert.isTrue(await wallet.isOwner.call(owner2));
         })
 
-        it("should multisig change requirement", function() {
-            return wallet.m_required.call().then(function(r) {
-                assert.equal(r,2)
-                return wallet.changeRequirement(3).then(function() {
-                    return wallet.changeRequirement(3,{from:owner1}).then(function() {
-                        return wallet.m_required.call().then(function (r) {
-                            assert.equal(r, 3)
-                        })
-                    })
-                })
-            })
+        it("should multisig change requirement", async () => {
+          let m_required = await wallet.m_required.call();
+          const new_m_required = 3;
+          assert.notEqual(new_m_required, m_required);
+
+          let tx = await wallet.changeRequirement(new_m_required);
+          let operation = getOperationFromMultisigTx(tx);
+
+          await wallet.confirm(operation, {from: owner2});
+
+          assert.equal(new_m_required, await wallet.m_required.call());
         })
 
-        it("should multisig kill and transfer funds", function() {
-            return coin.balanceOf.call(wallet.address).then(function (r) {
-                const wallet_erc20_balance = r
-                const wallet_eth_balance = web3.eth.getBalance(wallet.address)
-                const old_balance = web3.eth.getBalance(owner4)
-                return wallet.kill(owner4, {from: owner}).then(function () {
-                    return wallet.kill(owner4, {from: owner1}).then(function () {
-                        return wallet.kill.call(owner4, {from: owner2}).then(function (r) {
-                            return wallet.kill(owner4, {from: owner2}).then(function () {
-                                return coin.balanceOf.call(owner4).then(function (r2) {
-                                    const new_balance = web3.eth.getBalance(owner4)
-                                    assert(r, 1)
-                                    assert.isTrue(new_balance.equals(old_balance.add(wallet_eth_balance)))
-                                    assert.isTrue(wallet_erc20_balance.equals(r2))
-                                })
-                            })
-                        })
-                    })
-                })
-            })
+
+        it("should multisig kill and transfer funds", async () => {
+            let wallet_erc20_balance = await coin.balanceOf.call(wallet.address);
+            const wallet_eth_balance = web3.eth.getBalance(wallet.address);
+            const old_balance = web3.eth.getBalance(owner4);
+
+            assert.equal(3, await wallet.m_required.call());
+
+            assert.isTrue(await wallet.isOwner.call(owner));
+            assert.isTrue(await wallet.isOwner.call(owner1));
+            assert.isTrue(await wallet.isOwner.call(owner2));
+
+            let killTx = await wallet.kill(owner4, {from: owner});
+            let operation = getOperationFromMultisigTx(killTx);
+
+            await wallet.confirm(operation, {from: owner1});
+            await wallet.confirm(operation, {from: owner2});
+
+            assert.isTrue(wallet_erc20_balance.equals(await coin.balanceOf.call(owner4)));
+            const new_balance = web3.eth.getBalance(owner4);
+            assert.isTrue(new_balance.equals(old_balance.add(wallet_eth_balance)));
         })
 
         it("should allow to set multisig oracle address for owner", function() {
@@ -376,57 +374,85 @@ contract('Wallets Manager', function(accounts) {
             })
         })
 
-        it("can create timelocked Wallet contract", function() {
-            return clock.time.call()
-                .then(_time => currentTime = _time)
-                .then(() => console.log("Testrpc current date:", secondsToDate(currentTime)))
-                .then(() => {
-                    var currentDate = secondsToDate(currentTime)
-                    currentDate.setMonth(currentDate.getMonth() + 5)
-                    return Setup.walletsManager.createWallet.call([owner],1, currentDate.valueOf() / 1000 ).then(function(r1) {
-                        return Setup.walletsManager.createWallet([owner],1, currentDate.valueOf() / 1000, {
-                            from: owner,
-                            gas: 3000000
-                        }).then((tx) => {
-                            const walletCreatedEvents = eventsHelper.extractEvents(tx, "WalletCreated")
-                            assert.notEqual(walletCreatedEvents.length, 0)
-                            const walletAddress = walletCreatedEvents[0].args.wallet
-                            web3.eth.sendTransaction({to: walletAddress, value: 10000, from: accounts[0]})
-                            balanceETH = web3.eth.getBalance(walletAddress)
-                            assert.equal(balanceETH, 10000)
-                            return Wallet.at(walletAddress).then(function (instance) {
-                                return instance.m_required.call().then(function (r2) {
-                                    return instance.m_numOwners.call().then(function (r3) {
-                                        return instance.releaseTime.call().then(function (r4) {
-                                            assert.equal(r1, ErrorsEnum.OK)
-                                            assert.equal(r2, 1)
-                                            assert.equal(r3, 1)
-                                            assert.equal(r4,currentDate.valueOf() / 1000)
-                                            return instance.transfer.call(owner3, 6000, 'ETH').then(function (r) {
-                                                assert.equal(r, 14020)
-                                                currentDate.setMonth(currentDate.getMonth() + 1)
-                                                return timeMachine.jump(currentDate.getTime() / 1000 - currentTime).then(function () {
-                                                    return clock.time.call().then(_time2 => {
-                                                        return instance.transfer.call(owner3, 6000, 'ETH').then(function (r2) {
-                                                            assert.equal(r2, ErrorsEnum.OK)
-                                                        })
-                                                    })
-                                                })
-                                            })
-                                        })
+        it("should perform 2FA transfer", async () => {
+            const oracle = owner1;
+            const oracleBalance = web3.eth.getBalance(owner1);
+            const targetBalance = web3.eth.getBalance(owner3);
 
-                                    })
-                                })
-                            })
-                        })
-                    })
-                })
+            await Setup.walletsManager.setOracleAddress(oracle);
+            assert.equal(oracle, await Setup.walletsManager.getOracleAddress());
+
+            await Setup.walletsManager.setOraclePrice(10);
+            assert.equal(10, await Setup.walletsManager.getOraclePrice());
+
+            let createWalletTx = await Setup.walletsManager.create2FAWallet(0);
+            const walletCreatedEvents = eventsHelper.extractEvents(createWalletTx, "WalletCreated");
+            assert.equal(walletCreatedEvents.length, 1);
+            const walletAddress = walletCreatedEvents[0].args.wallet;
+
+            let wallet = Wallet.at(walletAddress);
+
+            web3.eth.sendTransaction({to: walletAddress, value: 10000, from: accounts[0]});
+
+            assert.isTrue(await wallet.isOwner.call(owner));
+            assert.isTrue(await wallet.isOwner.call(oracle));
+
+            assert.equal(2, await wallet.m_numOwners.call());
+            assert.equal(2, await wallet.m_required.call());
+
+            let transferTx = await wallet.transfer(owner3, 10, 'ETH', {value: 10});
+            let operation = getOperationFromMultisigTx(transferTx);
+
+            assert.equal(web3.eth.getBalance(oracle).sub(oracleBalance), 10);
+
+            await wallet.confirm(operation, {from: oracle});
+            assert.equal(web3.eth.getBalance(owner3).sub(targetBalance), 10);
         })
 
+        it("can create timelocked Wallet contract", async () => {
+            let currentTime = await clock.time.call();
+            console.log("Testrpc current date:", secondsToDate(currentTime));
+
+            let currentDate = secondsToDate(currentTime);
+            currentDate.setMonth(currentDate.getMonth() + 5);
+
+            let createWalletResult = await Setup.walletsManager.createWallet.call([owner], 1, currentDate.valueOf() / 1000);
+            assert.equal(createWalletResult, ErrorsEnum.OK);
+
+            let createWalletTx =
+              await Setup.walletsManager.createWallet([owner], 1, currentDate.valueOf() / 1000, {from: owner,gas: 3000000});
+
+            const walletCreatedEvents = eventsHelper.extractEvents(createWalletTx, "WalletCreated");
+            assert.notEqual(walletCreatedEvents.length, 0);
+
+            const walletAddress = walletCreatedEvents[0].args.wallet;
+            web3.eth.sendTransaction({to: walletAddress, value: 10000, from: accounts[0]});
+
+            let balanceETH = web3.eth.getBalance(walletAddress);
+            assert.equal(balanceETH, 10000);
+
+            let wallet = Wallet.at(walletAddress);
+            assert.equal(1, await wallet.m_required.call());
+            assert.equal(1, await wallet.m_numOwners.call());
+            assert.equal(currentDate.valueOf() / 1000, await wallet.releaseTime.call());
+
+            currentDate.setMonth(currentDate.getMonth() + 1);
+
+            await timeMachine.jump(currentDate.getTime() / 1000 - currentTime);
+
+            transferResult = await wallet.transfer.call(owner3, 6000, 'ETH');
+            assert.equal(ErrorsEnum.OK, transferResult);
+        });
     })
 })
 
 let secondsToDate = (seconds) => {
     var t = new Date(1970, 0, 1); t.setSeconds(seconds);
     return t;
+}
+
+let getOperationFromMultisigTx = (tx) => {
+  let events = eventsHelper.extractEvents(tx, "MultisigWalletConfirmationNeeded");
+  assert.equal(events.length, 1);
+  return events[0].args.operation;
 }

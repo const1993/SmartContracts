@@ -11,9 +11,9 @@ contract WalletEmitter is MultiEventsHistoryAdapter {
     // Single transaction going out of the wallet (record who signed for it, how much, and to whom it's going).
     event MultisigWalletSingleTransact(address indexed self, address indexed owner, uint value, address to, bytes32 symbol);
     // Multi-sig transaction going out of the wallet (record who signed for it last, the operation hash, how much, and to whom it's going).
-    event MultisigWalletMultiTransact(address indexed self, address indexed owner, bytes32 operation, uint value, address to, bytes32 symbol);
+    event MultisigWalletMultiTransact(address indexed self, address indexed owner, bytes32 operation, uint value, address to, bytes data);
     // Confirmation still needed for a transaction.
-    event MultisigWalletConfirmationNeeded(address indexed self, bytes32 operation, address indexed initiator, uint value, address to, bytes32 symbol);
+    event MultisigWalletConfirmationNeeded(address indexed self, bytes32 operation, address indexed initiator, uint value, address to, bytes data);
 
     event MultisigWalletConfirmation(address indexed self, address indexed owner, bytes32 operation);
 
@@ -43,12 +43,12 @@ contract WalletEmitter is MultiEventsHistoryAdapter {
         MultisigWalletSingleTransact(_self(), owner, value, to, symbol);
     }
 
-    function emitMultiTransact(address owner, bytes32 operation, uint value, address to, bytes32 symbol) {
-        MultisigWalletMultiTransact(_self(), owner, operation, value, to, symbol);
+    function emitMultiTransact(address owner, bytes32 operation, uint value, address to, bytes data) {
+        MultisigWalletMultiTransact(_self(), owner, operation, value, to, data);
     }
 
-    function emitConfirmationNeeded(bytes32 operation, address initiator, uint value, address to, bytes32 symbol) {
-        MultisigWalletConfirmationNeeded(_self(), operation, initiator, value, to, symbol);
+    function emitConfirmationNeeded(bytes32 operation, address initiator, uint value, address to, bytes data) {
+        MultisigWalletConfirmationNeeded(_self(), operation, initiator, value, to, data);
     }
 
     function emitConfirmation(address owner, bytes32 operation) {

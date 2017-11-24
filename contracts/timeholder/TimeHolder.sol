@@ -1,13 +1,17 @@
 pragma solidity ^0.4.11;
 
-import "./TimeHolderEmmiter.sol";
+import "./TimeHolderEmitter.sol";
 import "../core/common/BaseManager.sol";
 import "../core/common/ListenerInterface.sol";
 import "../core/common/Deposits.sol";
 import {ERC20Interface as Asset} from "../core/erc20/ERC20Interface.sol";
 import "./DepositWalletInterface.sol";
 
-contract TimeHolder is Deposits, TimeHolderEmmiter {
+
+/**
+* @title TODO
+*/
+contract TimeHolder is Deposits, TimeHolderEmitter {
 
     uint constant ERROR_TIMEHOLDER_ALREADY_ADDED = 12000;
     uint constant ERROR_TIMEHOLDER_INVALID_INVOCATION = 12001;
@@ -18,22 +22,32 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     uint constant ERROR_TIMEHOLDER_INSUFFICIENT_BALANCE = 12006;
     uint constant ERROR_TIMEHOLDER_LIMIT_EXCEEDED = 12007;
 
+    uint constant TIMEHOLDER_LISTENER_VERSION_V1 = 1;
+    uint constant TIMEHOLDER_LISTENER_VERSION_V2 = 2;
+
     StorageInterface.OrderedAddressesSet listeners;
+    StorageInterface.AddressOrderedSetMapping listeners_v2;
     StorageInterface.Address walletStorage;
     StorageInterface.Address feeWalletStorage;
-    StorageInterface.UInt limitAmount;
+    StorageInterface.UInt limitAmount_old; // DEPRECATED. WILL BE REMOVED IN THE NEXT RELEASE
+    StorageInterface.Bytes32UIntMapping limitAmountsStorage;
+    StorageInterface.AddressUIntMapping listenersSupportStorage;
 
-    modifier onlyFeatureFeeManager() {
+
+    modifier onlyFeatureFeeManager {
         if (msg.sender == lookupManager("FeatureFeeManager")) {
             _;
         }
     }
 
-    function TimeHolder(Storage _store, bytes32 _crate) Deposits(_store, _crate) {
+    function TimeHolder(Storage _store, bytes32 _crate) Deposits(_store, _crate) public {
         listeners.init('listeners');
-        limitAmount.init('limitAmount');
+        listeners_v2.init('listeners_v2');
+        limitAmount_old.init('limitAmount'); // DEPRECATED. WILL BE REMOVED IN THE NEXT RELEASE
         feeWalletStorage.init("timeHolderFeeWalletStorage");
         walletStorage.init("timeHolderWalletStorage");
+        limitAmountsStorage.init('limitAmountsStorage');
+        listenersSupportStorage.init('listenersSupportStorage');
     }
 
     /**
@@ -41,72 +55,156 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
      *
      *
      * @param _contractsManager address.
-     * @param _sharesContract ERC20 token address to act as shares.
+     * @param _defaultSharesTokenSymbol default ERC20 token symbol to act as shares.
      *
      * @return success.
      */
-    function init(address _contractsManager, address _sharesContract, address _wallet, address _feeWallet) onlyContractOwner returns (uint) {
+    function init(address _contractsManager, bytes32 _defaultSharesTokenSymbol, address _wallet, address _feeWallet) onlyContractOwner public returns (uint) {
         require(_wallet != 0x0);
-        require(_sharesContract != 0x0);
         require(_feeWallet != 0x0);
 
         BaseManager.init(_contractsManager, "TimeHolder");
 
-        store.set(sharesContractStorage, _sharesContract);
-        store.set(limitAmount, 2**255);
+        _migrateToVersion2(_defaultSharesTokenSymbol);
+
+        store.set(limitAmountsStorage, _defaultSharesTokenSymbol, 2**255);
+
         store.set(walletStorage, _wallet);
         store.set(feeWalletStorage, _feeWallet);
 
         return OK;
     }
 
-    function destroy() onlyContractOwner {
+    function _migrateToVersion2(bytes32 _defaultSharesTokenSymbol) private {
+        if (_defaultSharesTokenSymbol != bytes32(0)) {
+            store.set(defaultSharesSymbolStorage, _defaultSharesTokenSymbol);
+        }
+
+        _migrateToVersion2();
+
+        if (_defaultSharesTokenSymbol != bytes32(0)) {
+            store.add(sharesContractsStorage, _defaultSharesTokenSymbol);
+        }
+
+        address _listener;
+        StorageInterface.Iterator memory iterator = store.listIterator(listeners);
+        while (store.canGetNextWithIterator(listeners, iterator)) {
+            store.remove(listeners, _listener);
+            _listener = store.getNextWithIterator(listeners, iterator);
+            addListener(_listener);
+        }
+        store.remove(listeners, _listener);
+    }
+
+    function destroy() onlyContractOwner public {
         selfdestruct(msg.sender);
     }
 
-    function addListener(address _listener) onlyAuthorized returns (uint) {
-        //if(store.includes(listeners,_listener) || !_listener.call.gas(3000).value(0)(bytes4(sha3("deposit(address,uint256,uint256)")),this,0,0) || !_listener.call.gas(3000).value(0)(bytes4(sha3("withdrawn(address,uint256,uint256)")),this,0,0)) {
-        //    return _emitError(ERROR_TIMEHOLDER_INVALID_INVOCATION);
-        //}
-        ListenerInterface(_listener).deposit(this,0,0);
-        ListenerInterface(_listener).withdrawn(this,0,0);
-        if(store.includes(listeners,_listener)) {
-            return _emitError( ERROR_TIMEHOLDER_ALREADY_ADDED);
+    /**
+    * @dev TODO
+    */
+    function addERC20Shares(bytes32[] _whiteList) onlyAuthorized public returns (uint) {
+        ERC20Service erc20Service = lookupERC20Service();
+        for (uint _idx = 0; _idx < _whiteList.length; ++_idx) {
+            address _token = erc20Service.getTokenAddressBySymbol(_whiteList[_idx]);
+            if (!(_token == 0x0 || store.includes(sharesContractsStorage, _whiteList[_idx]))) {
+                store.add(sharesContractsStorage, _whiteList[_idx]);
+                store.set(limitAmountsStorage, _whiteList[_idx], 2**255);
+                // TODO: emit event
+            }
+        }
+    }
+
+    /**
+    * @dev TODO
+    */
+    function removeERC20Shares(bytes32[] _blackList) onlyAuthorized public returns (uint) {
+        ERC20Service erc20Service = lookupERC20Service();
+        for (uint _idx = 0; _idx < _blackList.length; ++_idx) {
+            address _token = erc20Service.getTokenAddressBySymbol(_blackList[_idx]);
+            if (_token != 0x0) {
+                store.remove(sharesContractsStorage, _blackList[_idx]);
+                store.set(limitAmountsStorage, _blackList[_idx], 0);
+                // TODO: emit event
+            }
+        }
+    }
+
+    /**
+    * @dev TODO
+    */
+    function addListener(address _listener) onlyAuthorized public returns (uint) {
+        ListenerInterface(_listener).deposit(this, 0, 0);
+        ListenerInterface(_listener).withdrawn(this, 0, 0);
+
+        return _addListener(store.get(defaultSharesSymbolStorage), _listener, TIMEHOLDER_LISTENER_VERSION_V1);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function removeListener(address _listener) onlyAuthorized public {
+        removeHolderListener(store.get(defaultSharesSymbolStorage), _listener);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function addHolderListener(bytes32 _smbl, address _listener) onlyAuthorized public returns (uint) {
+        HolderListenerInterface(_listener).depositHolder(_smbl, this, 0, 0);
+        HolderListenerInterface(_listener).withdrawnHolder(_smbl, this, 0, 0);
+
+        return _addListener(_smbl, _listener, TIMEHOLDER_LISTENER_VERSION_V2);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function removeHolderListener(bytes32 _smbl, address _listener) onlyAuthorized public {
+        require(_smbl != bytes32(0));
+
+        if (store.includes(listeners_v2, _smbl, _listener)) {
+            store.remove(listeners_v2, _smbl, _listener);
+            store.set(listenersSupportStorage, _listener, 0);
+            _emitListenerRemoved(_listener); // TODO: update event args
+        }
+    }
+
+    /**
+    * @dev TODO
+    */
+    function _addListener(bytes32 _smbl, address _listener, uint _listenerVersion) private returns (uint) {
+        require(_smbl != bytes32(0));
+
+        if (store.includes(listeners_v2, _smbl, _listener)) {
+            return _emitError(ERROR_TIMEHOLDER_ALREADY_ADDED);
         }
 
-        store.add(listeners,_listener);
+        store.add(listeners_v2, _smbl, _listener);
+        store.set(listenersSupportStorage, _listener, _listenerVersion);
 
-        _emitListenerAdded(_listener);
-
-        return OK;
+        _emitListenerAdded(_listener); // TODO: update event args
     }
 
     /**
     *  Sets fee wallet address.
     */
-    function setFeeWallet(address _feeWallet) onlyContractOwner {
+    function setFeeWallet(address _feeWallet) onlyContractOwner public {
         require(_feeWallet != 0x0);
         store.set(feeWalletStorage, _feeWallet);
-    }
-
-    function removeListener(address _listener) onlyAuthorized {
-        if (store.includes(listeners, _listener)) {
-            store.remove(listeners, _listener);
-            _emitListenerRemoved(_listener);
-        }
     }
 
     /**
     * Gets an associated wallet for the time holder
     */
-    function wallet() constant returns (address) {
+    function wallet() public constant returns (address) {
         return store.get(walletStorage);
     }
 
     /**
     * Gets an associated fee wallet for the time holder
     */
-    function feeWallet() constant returns (address) {
+    function feeWallet() public constant returns (address) {
         return store.get(feeWalletStorage);
     }
 
@@ -115,8 +213,39 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @return total amount of shares
     */
-    function totalShares() constant returns (uint) {
-        return store.get(totalSharesStorage);
+    function totalShares() public constant returns (uint) {
+        return totalShares(store.get(defaultSharesSymbolStorage));
+    }
+
+    /**
+    * Total amount of shares
+    *
+    * @return total amount of shares
+    */
+    function totalShares(bytes32 _smbl) public constant returns (uint) {
+        require(_smbl != bytes32(0));
+
+        return store.get(totalSharesStorage, _smbl);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function totalSupply() public constant returns (uint) {
+        return totalSupply(store.get(defaultSharesSymbolStorage));
+    }
+
+    /**
+    * @dev TODO
+    */
+    function totalSupply(bytes32 _smbl) public constant returns (uint) {
+        require(_smbl != bytes32(0));
+
+        address _asset = ERC20Service(lookupERC20Service()).getTokenAddressBySymbol(_smbl);
+
+        require(_asset != 0x0);
+
+        return Asset(_asset).totalSupply();
     }
 
     /**
@@ -124,8 +253,21 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @return address of shares contract
     */
-    function sharesContract() constant returns (address) {
-        return store.get(sharesContractStorage);
+    function sharesContract() public constant returns (address) {
+        return sharesContract(store.get(defaultSharesSymbolStorage));
+    }
+
+    /**
+    * @dev TODO
+    */
+    function sharesContract(bytes32 _smbl) internal constant returns (address) {
+        require(_smbl != bytes32(0));
+
+        address _asset = ERC20Service(lookupERC20Service()).getTokenAddressBySymbol(_smbl);
+
+        require(_asset != 0x0);
+
+        return _asset;
     }
 
     /**
@@ -133,7 +275,7 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @return number of shareholders
     */
-    function shareholdersCount() constant returns (uint) {
+    function shareholdersCount() public constant returns (uint) {
         return store.count(shareholders);
     }
 
@@ -142,8 +284,17 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @return limit
     */
-    function getLimit() constant returns (uint) {
-        return store.get(limitAmount);
+    function getLimit() public constant returns (uint) {
+        return getLimitForTokenSymbol(store.get(defaultSharesSymbolStorage));
+    }
+
+    /**
+    * @dev TODO
+    */
+    function getLimitForTokenSymbol(bytes32 _smbl) public constant returns (uint) {
+        require(_smbl != bytes32(0));
+
+        return store.get(limitAmountsStorage, _smbl);
     }
 
     /**
@@ -151,8 +302,17 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @param _limitAmount is limit
     */
-    function setLimit(uint _limitAmount) onlyContractOwner {
-        store.set(limitAmount, _limitAmount);
+    function setLimit(uint _limitAmount) onlyContractOwner public {
+        setLimitForTokenSymbol(store.get(defaultSharesSymbolStorage), _limitAmount);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function setLimitForTokenSymbol(bytes32 _smbl, uint _limitAmount) onlyContractOwner internal {
+        require(_smbl != bytes32(0));
+
+        store.set(limitAmountsStorage, _smbl, _limitAmount);
     }
 
     /**
@@ -166,8 +326,15 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
      *
      * @return success.
      */
-    function deposit(uint _amount) returns (uint) {
-        return depositFor(msg.sender, _amount);
+    function deposit(uint _amount) public returns (uint) {
+        return depositForTokenSymbol(store.get(defaultSharesSymbolStorage), msg.sender, _amount);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function depositTokenSymbol(bytes32 _smbl, uint _amount) public returns (uint) {
+        return depositForTokenSymbol(_smbl, msg.sender, _amount);
     }
 
     /**
@@ -185,43 +352,47 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
      *
      * @return success.
      */
-    function depositFor(address _address, uint _amount) returns (uint) {
-        if (_amount > getLimit()) {
+    function depositFor(address _address, uint _amount) public returns (uint) {
+        bytes32 _symbol = store.get(defaultSharesSymbolStorage);
+
+        require(_symbol != bytes32(0));
+
+        return depositForTokenSymbol(_symbol, _address, _amount);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function depositForTokenSymbol(bytes32 _smbl, address _address, uint _amount) public returns (uint) {
+        require(_smbl != bytes32(0));
+
+        if (_amount > getLimitForTokenSymbol(_smbl)) {
             return _emitError(ERROR_TIMEHOLDER_LIMIT_EXCEEDED);
         }
 
-        address asset = store.get(sharesContractStorage);
-        if (!(_amount == 0 || DepositWalletInterface(wallet()).deposit(asset, msg.sender, _amount))) {
+        if (!(_amount == 0 || DepositWalletInterface(wallet()).deposit(sharesContract(_smbl), msg.sender, _amount))) {
             return _emitError(ERROR_TIMEHOLDER_TRANSFER_FAILED);
         }
 
-        if(!store.includes(shareholders,_address)) {
-            store.add(shareholders,_address);
+        if (!store.includes(shareholders, _address)) {
+            store.add(shareholders, _address);
         }
 
-        uint prevId = store.get(depositsIdCounter);
-        uint id = prevId + 1;
-        store.set(depositsIdCounter, id);
-        store.add(deposits,bytes32(_address),id);
-        store.set(amounts,_address,id,_amount);
-        store.set(timestamps,_address,id,now);
+        bytes32 _key = getCompositeKey(_smbl, _address);
 
-        uint balance = depositBalance(_address);
-        uint errorCode;
-        StorageInterface.Iterator memory iterator = store.listIterator(listeners);
-        for(uint i = 0; store.canGetNextWithIterator(listeners,iterator); i++) {
-            address listener = store.getNextWithIterator(listeners,iterator);
-            errorCode = ListenerInterface(listener).deposit(_address, _amount, balance);
-            if (OK != errorCode) {
-                _emitError(errorCode);
-            }
-        }
+        uint _id = store.get(depositsIdCounters, _key) + 1;
+        store.set(depositsIdCounters, _key, _id);
+        store.add(deposits, _key, _id);
+        store.set(amounts, _key, bytes32(_id), bytes32(_amount));
+        store.set(timestamps, _key, bytes32(_id), bytes32(now));
+
+        _notifyListenersDeposit(_smbl, _address, _amount);
 
         _emitDeposit(_address, _amount);
 
-        uint prevAmount = store.get(totalSharesStorage);
-        _amount += prevAmount;
-        store.set(totalSharesStorage,_amount);
+        uint prevAmount = store.get(totalSharesStorage, _smbl);
+        _amount = _amount.add(prevAmount);
+        store.set(totalSharesStorage, _smbl, _amount);
 
         return OK;
     }
@@ -233,8 +404,17 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @return success.
     */
-    function withdrawShares(uint _amount) returns (uint resultCode) {
-        resultCode = _withdrawShares(msg.sender, msg.sender, _amount);
+    function withdrawShares(uint _amount) public returns (uint) {
+        return withdrawShares(store.get(defaultSharesSymbolStorage), _amount);
+    }
+
+    /**
+    * @dev TODO
+    */
+    function withdrawShares(bytes32 _smbl, uint _amount) public returns (uint resultCode) {
+        require(_smbl != bytes32(0));
+
+        resultCode = _withdrawShares(_smbl, msg.sender, msg.sender, _amount);
         if (resultCode != OK) {
             return _emitError(resultCode);
         }
@@ -250,14 +430,16 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @return resultCode result code of the operation
     */
-    function takeFeatureFee(address _account, uint _amount) onlyFeatureFeeManager
-    public returns (uint resultCode)
-    {
+    function takeFeatureFee(address _account, uint _amount) onlyFeatureFeeManager public returns (uint resultCode) {
         require(_account != 0x0);
 
         assert(feeWallet() != 0x0);
 
-        resultCode = _withdrawShares(_account, feeWallet(), _amount);
+        bytes32 _smbl = store.get(defaultSharesSymbolStorage);
+
+        assert(_smbl != bytes32(0));
+
+        resultCode = _withdrawShares(_smbl, _account, feeWallet(), _amount);
         if (resultCode != OK) {
             return _emitError(resultCode);
         }
@@ -275,100 +457,136 @@ contract TimeHolder is Deposits, TimeHolderEmmiter {
     *
     * @return result code of the operation
     */
-    function _withdrawShares(address _account, address _receiver, uint _amount) internal returns (uint) {
-        if (_amount > getLimit()) {
+    function _withdrawShares(bytes32 _smbl, address _account, address _receiver, uint _amount) internal returns (uint) {
+        if (_amount > getLimitForTokenSymbol(_smbl)) {
             return _emitError(ERROR_TIMEHOLDER_LIMIT_EXCEEDED);
         }
 
-        if (_amount > depositBalance(_account)) {
+        uint _depositBalance = depositBalanceForTokenSymbol(_smbl, _account);
+
+        if (_amount > _depositBalance) {
             return _emitError(ERROR_TIMEHOLDER_INSUFFICIENT_BALANCE);
         }
 
-        if (!DepositWalletInterface(wallet()).withdraw(sharesContract(), _receiver, _amount)) {
+        if (!DepositWalletInterface(wallet()).withdraw(sharesContract(_smbl), _receiver, _amount)) {
             return _emitError(ERROR_TIMEHOLDER_TRANSFER_FAILED);
         }
 
-        uint _original_amount = _amount;
-        uint i;
+        _withdrawSharesFromDeposits(_depositBalance, _smbl, _account, _amount);
+        _notifyListenersWithdraw(_smbl, _account, _amount);
 
-        StorageInterface.Iterator memory iterator;
-
-        if (depositBalance(_account) != 0) {
-            iterator = store.listIterator(deposits, bytes32(_account));
-            uint deposits_count = iterator.count();
-            if (deposits_count != 0) {
-                for (i = 0; store.canGetNextWithIterator(deposits,iterator); i++) {
-                    uint _id = store.getNextWithIterator(deposits,iterator);
-                    uint _cur_amount = store.get(amounts, _account, _id);
-                    if (_amount < _cur_amount) {
-                        store.set(amounts, _account, _id, _cur_amount - _amount);
-                        break;
-                    }
-                    if (_amount == _cur_amount) {
-                        store.remove(deposits, bytes32(_account), _id);
-                        deposits_count--;
-                        break;
-                    }
-                    if (_amount > _cur_amount) {
-                        _amount -= _cur_amount;
-                        store.remove(deposits, bytes32(_account), _id);
-                        deposits_count--;
-                    }
-                }
-            }
-            if (deposits_count == 0) {
-                store.remove(shareholders, _account);
-            }
-        }
-
-        uint errorCode;
-        uint balance = depositBalance(_account);
-
-        iterator = store.listIterator(listeners);
-        for (i = 0; store.canGetNextWithIterator(listeners,iterator); i++) {
-            address listener = store.getNextWithIterator(listeners, iterator);
-            errorCode = ListenerInterface(listener).withdrawn(_account, _original_amount, balance);
-            if (errorCode != OK) {
-                _emitError(errorCode);
-            }
-        }
-
-        store.set(totalSharesStorage,store.get(totalSharesStorage) - _original_amount);
+        store.set(totalSharesStorage, _smbl, store.get(totalSharesStorage, _smbl).sub(_amount));
 
         return OK;
     }
 
-    function totalSupply() constant returns (uint) {
-        address asset = store.get(sharesContractStorage);
-        return ERC20Interface(asset).totalSupply();
+    function _withdrawSharesFromDeposit(bytes32 _key, uint _id, uint _amount, uint _depositsLeft) private returns (uint, uint) {
+        uint _cur_amount = uint(store.get(amounts, _key, bytes32(_id)));
+        if (_amount < _cur_amount) {
+            store.set(amounts, _key, bytes32(_id), bytes32(_cur_amount.sub(_amount)));
+            return (_depositsLeft, _amount);
+        }
+        if (_amount == _cur_amount) {
+            store.remove(deposits, _key, _id);
+            return (_depositsLeft.sub(1), _amount);
+        }
+        if (_amount > _cur_amount) {
+            store.remove(deposits, _key, _id);
+            return (_depositsLeft.sub(1), _amount.sub(_cur_amount));
+        }
+    }
+
+    function _withdrawSharesFromDeposits(uint _totalDepositBalance, bytes32 _smbl, address _account, uint _amount) private {
+        if (_totalDepositBalance == 0) {
+            return;
+        }
+
+        bytes32 _key = getCompositeKey(_smbl, _account);
+        StorageInterface.Iterator memory iterator = store.listIterator(deposits, _key);
+        uint _deposits_count_left = iterator.count();
+
+        if (_deposits_count_left != 0) {
+            for (uint i = 0; store.canGetNextWithIterator(deposits, iterator); ++i) {
+                uint _id = store.getNextWithIterator(deposits, iterator);
+                (_deposits_count_left, _amount) = _withdrawSharesFromDeposit(_key, _id, _amount, _deposits_count_left);
+            }
+        }
+
+        if (_deposits_count_left == 0) {
+            store.remove(shareholders, _account);
+        }
+    }
+
+    function _notifyListenersWithdraw(bytes32 _smbl, address _account, uint _amount) private {
+        uint _depositBalance = depositBalanceForTokenSymbol(_smbl, _account);
+        uint _errorCode;
+        bytes32 _defaultSmbl = store.get(defaultSharesSymbolStorage);
+        StorageInterface.Iterator memory iterator = store.listIterator(listeners_v2, _smbl);
+        for (uint i = 0; store.canGetNextWithIterator(listeners_v2, iterator); ++i) {
+            address _listener = store.getNextWithIterator(listeners_v2, iterator);
+            uint _listenerVersion = store.get(listenersSupportStorage, _listener);
+            _errorCode = OK;
+
+            if (_listenerVersion == TIMEHOLDER_LISTENER_VERSION_V1 && _smbl == _defaultSmbl) { // DEPRECATED. LEFT ONLY FOR BACKWARD COMPATIBILITY. WILL BE REMOVED SOON
+                _errorCode = ListenerInterface(_listener).withdrawn(_account, _amount, _depositBalance);
+            } else if (_listenerVersion == TIMEHOLDER_LISTENER_VERSION_V2) {
+                _errorCode = HolderListenerInterface(_listener).withdrawnHolder(_smbl, _account, _amount, _depositBalance);
+            }
+
+            if (_errorCode != OK) {
+                _emitError(_errorCode);
+            }
+        }
+    }
+
+    function _notifyListenersDeposit(bytes32 _smbl, address _address, uint _amount) private {
+        uint _depositBalance = depositBalanceForTokenSymbol(_smbl, _address);
+        uint _errorCode;
+        bytes32 _defaultSmbl = store.get(defaultSharesSymbolStorage);
+        StorageInterface.Iterator memory iterator = store.listIterator(listeners_v2, _smbl);
+        for (uint i = 0; store.canGetNextWithIterator(listeners_v2, iterator); ++i) {
+            address _listener = store.getNextWithIterator(listeners_v2, iterator);
+            uint _listenerVersion = store.get(listenersSupportStorage, _listener);
+            _errorCode = OK;
+
+            if (_listenerVersion == TIMEHOLDER_LISTENER_VERSION_V1 && _smbl == _defaultSmbl) { // DEPRECATED. LEFT ONLY FOR BACKWARD COMPATIBILITY. WILL BE REMOVED SOON
+                _errorCode = ListenerInterface(_listener).deposit(_address, _amount, _depositBalance);
+            } else if (_listenerVersion == TIMEHOLDER_LISTENER_VERSION_V2) {
+                _errorCode = HolderListenerInterface(_listener).depositHolder(_smbl, _address, _amount, _depositBalance);
+            }
+
+            if (_errorCode != OK) {
+                _emitError(_errorCode);
+            }
+        }
+    }
+
+    function() public {
+        revert();
     }
 
     function _emitDeposit(address who, uint amount) private {
-        TimeHolder(getEventsHistory()).emitDeposit(who, amount);
+        TimeHolderEmitter(getEventsHistory()).emitDeposit(who, amount);
     }
 
     function _emitWithdrawShares(address who, uint amount) private {
-        TimeHolder(getEventsHistory()).emitWithdrawShares(who, amount);
+        TimeHolderEmitter(getEventsHistory()).emitWithdrawShares(who, amount);
     }
 
     function _emitListenerAdded(address listener) private {
-        TimeHolder(getEventsHistory()).emitListenerAdded(listener);
+        TimeHolderEmitter(getEventsHistory()).emitListenerAdded(listener);
     }
 
     function _emitListenerRemoved(address listener) private {
-        TimeHolder(getEventsHistory()).emitListenerRemoved(listener);
+        TimeHolderEmitter(getEventsHistory()).emitListenerRemoved(listener);
     }
 
     function _emitFeatureFeeTaken(address _from, address _to, uint _amount) private {
-        TimeHolder(getEventsHistory()).emitFeatureFeeTaken(_from, _to, _amount);
+        TimeHolderEmitter(getEventsHistory()).emitFeatureFeeTaken(_from, _to, _amount);
     }
 
     function _emitError(uint e) private returns (uint) {
-        TimeHolder(getEventsHistory()).emitError(e);
+        TimeHolderEmitter(getEventsHistory()).emitError(e);
         return e;
-    }
-
-    function() {
-        revert();
     }
 }

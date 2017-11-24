@@ -30,14 +30,12 @@ module.exports = function(deployer, network, accounts) {
       .then(() => TimeHolder.deployed())
       .then(_timeHolder => updatedTimeHolder = _timeHolder)
       .then(() => storageManager.giveAccess(updatedTimeHolder.address, 'Deposits'))
-      .then(() => ERC20Manager.deployed())
-      .then(_erc20Manager => _erc20Manager.getTokenAddressBySymbol.call("TIME"))
-      .then(_timeAddress => updatedTimeHolder.init(ContractsManager.address, _timeAddress, TimeHolderWallet.address, accounts[0]))
+      .then(() => updatedTimeHolder.init(ContractsManager.address, "TIME", TimeHolderWallet.address, accounts[0]))
       .then(() => MultiEventsHistory.deployed())
       .then(_history => _history.authorize(updatedTimeHolder.address))
       .then(() => {
           if (network == "main") {
-              return updatedTimeHolder.setLimit(100000000);
+              return updatedTimeHolder.setLimitForTokenSymbol("TIME", 100000000);
           }
       })
       .then(() => console.log("[MIGRATION] [50.1] updated TimeHolder deployed: #done"))

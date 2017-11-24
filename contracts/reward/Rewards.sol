@@ -8,13 +8,14 @@ import "../timeholder/DepositWalletInterface.sol";
 import "../core/common/Managed.sol";
 import "../core/common/Deposits.sol";
 import "../reward/RewardsEmitter.sol";
+import "../core/lib/StringsLib.sol";
 
 /**
 * @title Defines interface for managers that can store any tokens and use for that purpose wallets
 * instead of keeping tokens on their own address. Keeps this contracts updatable with ease.
 */
 contract WalletBackedManagerInterface {
-    function wallet() constant returns (address);
+    function wallet() public constant returns (address);
 }
 
 /**
@@ -76,7 +77,7 @@ contract Rewards is Deposits, RewardsEmitter {
     StorageInterface.Address targetPlatform;
     StorageInterface.Address walletStorage;
 
-    function Rewards(Storage _store, bytes32 _crate) Deposits(_store, _crate) {
+    function Rewards(Storage _store, bytes32 _crate) Deposits(_store, _crate) public {
         closeInterval.init('closeInterval');
         maxSharesTransfer.init('maxSharesTransfer');
         rewards.init('rewards');
@@ -104,7 +105,13 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return result code, @see Errors
      */
-    function init(address _contractsManager, address _wallet, address _targetPlatform, uint _closeIntervalDays) onlyContractOwner returns (uint) {
+    function init(
+        address _contractsManager,
+        address _wallet,
+        address _targetPlatform,
+        uint _closeIntervalDays
+    ) onlyContractOwner public returns (uint)
+    {
         uint result = BaseManager.init(_contractsManager, "Rewards");
 
         store.set(closeInterval, _closeIntervalDays);
@@ -113,8 +120,8 @@ contract Rewards is Deposits, RewardsEmitter {
 
         // do not update default values if reinitialization
         if (REINITIALIZED != result) {
-            store.set(startDate,0,now);
-            store.set(maxSharesTransfer,30);
+            store.set(startDate, 0, now);
+            store.set(maxSharesTransfer, 30);
         }
 
         return OK;
@@ -129,41 +136,41 @@ contract Rewards is Deposits, RewardsEmitter {
         return store.get(walletStorage);
     }
 
-    function getCloseInterval() constant returns(uint) {
+    function getCloseInterval() public constant returns(uint) {
         return store.get(closeInterval);
     }
 
-    function setCloseInterval(uint _closeInterval) onlyAuthorized returns(uint) {
-        store.set(closeInterval,_closeInterval);
+    function setCloseInterval(uint _closeInterval) onlyAuthorized public returns(uint) {
+        store.set(closeInterval, _closeInterval);
         return OK;
     }
 
-    function getMaxSharesTransfer() constant returns(uint) {
+    function getMaxSharesTransfer() public constant returns(uint) {
         return store.get(maxSharesTransfer);
     }
 
-    function setMaxSharesTransfer(uint _maxSharesTransfer) onlyAuthorized returns (uint) {
-        store.set(maxSharesTransfer,_maxSharesTransfer);
+    function setMaxSharesTransfer(uint _maxSharesTransfer) onlyAuthorized public returns (uint) {
+        store.set(maxSharesTransfer, _maxSharesTransfer);
         return OK;
     }
 
-    function getRewardsLeft(address shareholder) constant returns(uint) {
-        return store.get(rewardsLeft,shareholder);
+    function getRewardsLeft(address shareholder) public constant returns(uint) {
+        return store.get(rewardsLeft, shareholder);
     }
 
-    function periodsLength() constant returns(uint) {
+    function periodsLength() public constant returns(uint) {
         return store.get(periods);
     }
 
-    function periodUnique(uint _period) constant returns(uint) {
-        if(_period == lastPeriod()) {
+    function periodUnique(uint _period) public constant returns(uint) {
+        if (_period == lastPeriod()) {
             return store.count(shareholders);
-        } else {
-            return store.get(shareholdersCount,_period);
         }
+
+        return store.get(shareholdersCount, _period);
     }
 
-    function getAssets() constant returns(address[] result) {
+    function getAssets() public constant returns(address[] result) {
         address _targetPlatform = store.get(targetPlatform);
         AssetsManagerInterface assetsManager = AssetsManagerInterface(lookupManager("AssetsManager"));
         address chronoMintWallet = WalletBackedManagerInterface(lookupManager("LOCManager")).wallet();
@@ -183,13 +190,13 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return success.
      */
-    function closePeriod() onlyAuthorized returns (uint resultCode) {
+    function closePeriod() onlyAuthorized public returns (uint resultCode) {
         uint period = lastPeriod();
-        if ((store.get(startDate,period) + (store.get(closeInterval) * 1 days)) > now) {
+        if ((store.get(startDate, period) + (store.get(closeInterval) * 1 days)) > now) {
             return _emitError(ERROR_REWARD_CANNOT_CLOSE_PERIOD);
         }
 
-        uint _totalSharesPeriod = store.get(totalSharesStorage);
+        uint _totalSharesPeriod = store.get(totalSharesStorage, store.get(defaultSharesSymbolStorage));
         uint _shareholdersCount = store.count(shareholders);
         store.set(totalShares, period, _totalSharesPeriod);
         store.set(shareholdersCount, period, _shareholdersCount);
@@ -203,15 +210,15 @@ contract Rewards is Deposits, RewardsEmitter {
                 }
             }
         }
-        store.set(periods,++period);
-        store.set(startDate,period,now);
+        store.set(periods, ++period);
+        store.set(startDate, period, now);
         resultCode = storeDeposits(assets);
         if (resultCode == OK) {
             _emitPeriodClosed();
         }
     }
 
-    function getPeriodStartDate(uint _period) constant returns (uint) {
+    function getPeriodStartDate(uint _period) public constant returns (uint) {
         return store.get(startDate, _period);
     }
 
@@ -219,7 +226,7 @@ contract Rewards is Deposits, RewardsEmitter {
     *  @return error code and still left shares. `sharesLeft` is actual only
     *  if `errorCode` == OK, otherwise `sharesLeft` must be ignored.
     */
-    function storeDeposits() onlyAuthorized returns (uint resultCode) {
+    function storeDeposits() onlyAuthorized public returns (uint resultCode) {
         resultCode = storeDeposits(getAssets());
     }
 
@@ -229,20 +236,23 @@ contract Rewards is Deposits, RewardsEmitter {
         StorageInterface.Iterator memory iterator = store.listIterator(shareholders);
         uint amount;
         uint j;
+        bytes32 _key;
+        bytes32 _smbl = store.get(defaultSharesSymbolStorage);
         for(uint i = 0; store.canGetNextWithIterator(shareholders, iterator); i++) {
             address shareholder = store.getNextWithIterator(shareholders, iterator);
+            _key = getCompositeKey(_smbl, shareholder);
             amount = 0;
-            StorageInterface.Iterator memory iterator2 = store.listIterator(deposits,bytes32(shareholder));
-            for(j = 0; store.canGetNextWithIterator(deposits, iterator2); j++) {
-                uint id = store.getNextWithIterator(deposits,iterator2);
-                uint timestamp = store.get(timestamps,shareholder,id);
-                if(timestamp <= period_end) {
-                    amount += store.get(amounts,shareholder,id);
+            StorageInterface.Iterator memory iterator2 = store.listIterator(deposits, _key);
+            for (j = 0; store.canGetNextWithIterator(deposits, iterator2); ++j) {
+                uint id = store.getNextWithIterator(deposits, iterator2);
+                uint timestamp = uint(store.get(timestamps, _key, bytes32(id)));
+                if (timestamp <= period_end) {
+                    amount = amount.add(uint(store.get(amounts, _key, bytes32(id))));
                 }
             }
-            for(j = 0; j < assets.length; j++) {
-                result = calculateRewardFor(assets[j],shareholder,amount,period);
-                if(OK != result) {
+            for (j = 0; j < assets.length; ++j) {
+                result = calculateRewardFor(assets[j], shareholder, amount, period);
+                if (OK != result) {
                     _emitError(result);
                 }
             }
@@ -255,38 +265,40 @@ contract Rewards is Deposits, RewardsEmitter {
     }
 
     function registerAsset(address _asset, uint _period) internal returns (uint) {
-        if (store.get(sharesContractStorage) == _asset) {
+        bytes32 _assetSymbol = getTokenSymbol(_asset);
+        if (store.includes(sharesContractsStorage, _assetSymbol)) {
             return _emitError(ERROR_REWARD_ASSET_ALREADY_REGISTERED);
         }
-        uint period_balance = store.get(assetBalances,_period,_asset);
+
+        uint period_balance = store.get(assetBalances, _period, _asset);
         if (period_balance != 0) {
             return _emitError(ERROR_REWARD_ASSET_ALREADY_REGISTERED);
         }
 
         uint balance = ERC20Interface(_asset).balanceOf(wallet());
-        uint left = store.get(rewardsLeft,_asset);
-        store.set(assetBalances,_period,_asset,balance - left);
-        store.set(rewardsLeft,_asset,balance);
+        uint left = store.get(rewardsLeft ,_asset);
+        store.set(assetBalances, _period, _asset, balance.sub(left));
+        store.set(rewardsLeft, _asset, balance);
 
-        _emitAssetRegistered(address(_asset));
+        _emitAssetRegistered(_asset);
         return OK;
     }
 
     function calculateRewardFor(address _assetAddress, address _address, uint _amount, uint _period) internal returns (uint e) {
-        uint assetBalance = store.get(assetBalances,_period,_assetAddress);
+        uint assetBalance = store.get(assetBalances, _period, _assetAddress);
         if (assetBalance == 0) {
             return ERROR_REWARD_CALCULATION_FAILED;
         }
 
-        if (store.get(calculated,_period,_assetAddress,_address)) {
+        if (store.get(calculated, _period, _assetAddress, _address)) {
             return ERROR_REWARD_ALREADY_CALCULATED;
         }
 
-        uint totalSharesPeriod = store.get(totalShares,_period);
-        uint reward =  assetBalance * _amount / totalSharesPeriod;
-        uint cur_reward = store.get(rewards,_assetAddress,_address);
-        store.set(rewards,_assetAddress,_address,cur_reward + reward);
-        store.set(calculated,_period,_assetAddress,_address,true);
+        uint totalSharesPeriod = store.get(totalShares, _period);
+        uint reward =  assetBalance.mul(_amount).div(totalSharesPeriod);
+        uint cur_reward = store.get(rewards, _assetAddress, _address);
+        store.set(rewards, _assetAddress, _address, cur_reward.add(reward));
+        store.set(calculated, _period, _assetAddress, _address, true);
 
         return OK;
     }
@@ -300,7 +312,7 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return success.
      */
-    function withdrawRewardTotal(address _asset) returns (uint) {
+    function withdrawRewardTotal(address _asset) public returns (uint) {
         return withdrawRewardFor(_asset, msg.sender, rewardsFor(_asset, msg.sender));
     }
 
@@ -311,7 +323,7 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return result code.
      */
-    function withdrawAllRewardsTotal() returns (uint) {
+    function withdrawAllRewardsTotal() public returns (uint) {
         address[] memory _assets = getAssets();
         for (uint i=0; i < _assets.length; i++) {
             uint _rewards = rewardsFor(_assets[i], msg.sender);
@@ -353,7 +365,7 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return success.
      */
-    function withdrawReward(address _asset, uint _amount) returns (uint) {
+    function withdrawReward(address _asset, uint _amount) public returns (uint) {
         return withdrawRewardFor(_asset, msg.sender, _amount);
     }
 
@@ -369,7 +381,7 @@ contract Rewards is Deposits, RewardsEmitter {
      * @return success.
      */
     function withdrawRewardFor(address _asset, address _address, uint _amount) internal returns (uint) {
-        if (store.get(rewardsLeft,_asset) == 0) {
+        if (store.get(rewardsLeft, _asset) == 0) {
             return _emitError(ERROR_REWARD_NO_REWARDS_LEFT);
         }
 
@@ -383,13 +395,13 @@ contract Rewards is Deposits, RewardsEmitter {
         }
 
         uint endBalance = ERC20Interface(_asset).balanceOf(_wallet);
-        uint diff = startBalance - endBalance;
+        uint diff = startBalance.sub(endBalance);
         if (rewardsFor(_asset, _address) < diff) {
             revert();
         }
 
-        store.set(rewards,_asset,_address,store.get(rewards,_asset,_address) - diff);
-        store.set(rewardsLeft,_asset, store.get(rewardsLeft,_asset) - diff);
+        store.set(rewards ,_asset, _address, store.get(rewards, _asset, _address).sub(diff));
+        store.set(rewardsLeft, _asset, store.get(rewardsLeft, _asset).sub(diff));
 
         _emitWithdrawnReward(_asset, _address, _amount);
         return OK;
@@ -403,11 +415,11 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return shares amount.
      */
-    function depositBalanceInPeriod(address _address, uint _period) constant returns (uint) {
-        if(_period == lastPeriod()) {
+    function depositBalanceInPeriod(address _address, uint _period) public constant returns (uint) {
+        if (_period == lastPeriod()) {
             return depositBalance(_address);
         }
-        return store.get(shares,_period,_address);
+        return store.get(shares, _period, _address);
     }
 
     /**
@@ -417,11 +429,11 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return shares amount.
      */
-    function totalDepositInPeriod(uint _period) constant returns(uint) {
-        if(_period == lastPeriod()) {
-            return store.get(totalSharesStorage);
+    function totalDepositInPeriod(uint _period) public constant returns(uint) {
+        if (_period == lastPeriod()) {
+            return store.get(totalSharesStorage, store.get(defaultSharesSymbolStorage));
         }
-        return store.get(totalShares,_period);
+        return store.get(totalShares, _period);
     }
 
     /**
@@ -429,7 +441,7 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return period.
      */
-    function lastPeriod() constant returns(uint) {
+    function lastPeriod() public constant returns(uint) {
         return store.get(periods);
     }
 
@@ -440,7 +452,7 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return period.
      */
-    function lastClosedPeriod() constant returns(uint) {
+    function lastClosedPeriod() public constant returns(uint) {
         if (store.get(periods) == 0) {
             return ERROR_REWARD_NOT_FOUND;
         }
@@ -454,8 +466,8 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return period closing state.
      */
-    function isClosed(uint _period) constant returns(bool) {
-        return store.get(closed,_period);
+    function isClosed(uint _period) public constant returns(bool) {
+        return store.get(closed, _period);
     }
 
     /**
@@ -467,8 +479,8 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return assets amount.
      */
-    function assetBalanceInPeriod(address _assetAddress, uint _period) constant returns(uint) {
-        return store.get(assetBalances,_period,_assetAddress);
+    function assetBalanceInPeriod(address _assetAddress, uint _period) public constant returns(uint) {
+        return store.get(assetBalances, _period, _assetAddress);
     }
 
     /**
@@ -480,8 +492,8 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return reward calculation state.
      */
-    function isCalculatedFor(address _assetAddress, address _address, uint _period) constant returns(bool) {
-        return store.get(calculated,_period,_assetAddress,_address);
+    function isCalculatedFor(address _assetAddress, address _address, uint _period) public constant returns(bool) {
+        return store.get(calculated, _period, _assetAddress, _address);
     }
 
     /**
@@ -492,38 +504,38 @@ contract Rewards is Deposits, RewardsEmitter {
      *
      * @return rewards amount.
      */
-    function rewardsFor(address _assetAddress, address _address) constant returns(uint) {
+    function rewardsFor(address _assetAddress, address _address) public constant returns(uint) {
         return store.get(rewards, _assetAddress, _address);
     }
 
     // Even emitter util functions
 
-    function _emitWithdrawnReward(address asset, address addr, uint amount) {
-        Rewards(getEventsHistory()).emitWithdrawnReward(asset, addr, amount);
+    function _emitWithdrawnReward(address asset, address addr, uint amount) private {
+        RewardsEmitter(getEventsHistory()).emitWithdrawnReward(asset, addr, amount);
     }
 
-    function _emitWithdrawn(address addr, uint amount, uint total) {
-        Rewards(getEventsHistory()).emitWithdrawn(addr, amount, total);
+    function _emitWithdrawn(address addr, uint amount, uint total) private {
+        RewardsEmitter(getEventsHistory()).emitWithdrawn(addr, amount, total);
     }
 
-    function _emitDepositStored(uint _part) {
-        Rewards(getEventsHistory()).emitDepositStored(_part);
+    function _emitDepositStored(uint _part) private {
+        RewardsEmitter(getEventsHistory()).emitDepositStored(_part);
     }
 
-    function _emitAssetRegistered(address assetAddress) {
-        Rewards(getEventsHistory()).emitAssetRegistered(assetAddress);
+    function _emitAssetRegistered(address assetAddress) private {
+        RewardsEmitter(getEventsHistory()).emitAssetRegistered(assetAddress);
     }
 
-    function _emitPeriodClosed() {
-        Rewards(getEventsHistory()).emitPeriodClosed();
+    function _emitPeriodClosed() private {
+        RewardsEmitter(getEventsHistory()).emitPeriodClosed();
     }
 
-    function _emitError(uint e) returns (uint) {
-        Rewards(getEventsHistory()).emitError(e);
+    function _emitError(uint e) private returns (uint) {
+        RewardsEmitter(getEventsHistory()).emitError(e);
         return e;
     }
 
-    function() {
+    function() public  {
         revert();
     }
 }

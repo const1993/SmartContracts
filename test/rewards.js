@@ -12,6 +12,7 @@ const UserManager = artifacts.require("./UserManager.sol");
 const AssetsManagerMock = artifacts.require("./AssetsManagerMock.sol");
 const MultiEventsHistory = artifacts.require('./MultiEventsHistory.sol');
 const Storage = artifacts.require("./Storage.sol");
+const ERC20Manager = artifacts.require('./ERC20Manager.sol')
 const ManagerMock = artifacts.require('./ManagerMock.sol');
 const Reverter = require('./helpers/reverter');
 const bytes32 = require('./helpers/bytes32');
@@ -32,6 +33,7 @@ contract('Rewards', (accounts) => {
   let assetsManager;
   let chronoMint;
   let chronoMintWallet;
+  let erc20Manager
   let shares;
   let asset1;
   let asset2;
@@ -41,10 +43,22 @@ contract('Rewards', (accounts) => {
   const SHARES_BALANCE = 1161;
   const CHRONOBANK_PLATFORM_ID = 1;
 
+  const DEFAULT_SHARE_SYMBOL = "FAKE"
+
   const STUB_PLATFORM_ADDRESS = 0x0
 
   let defaultInit = () => {
     return storage.setManager(ManagerMock.address)
+    .then(() => erc20Manager.init(contractsManager.address))
+    .then(() => {
+        return Promise.resolve()
+        .then(() => Promise.all([shares.symbol.call(), shares.decimals.call()]))
+        .then(_details => erc20Manager.addToken(shares.address, "", _details[0], _details[1], "", 0x0, 0x0))
+        .then(() => Promise.all([asset1.symbol.call(), asset1.decimals.call()]))
+        .then(_details => erc20Manager.addToken(asset1.address, "", _details[0], _details[1], "", 0x0, 0x0))
+        .then(() => Promise.all([asset2.symbol.call(), asset2.decimals.call()]))
+        .then(_details => erc20Manager.addToken(asset2.address, "", _details[0], _details[1], "", 0x0, 0x0))
+    })
     .then(() => assetsManager.init(contractsManager.address))
     .then(() => rewardsWallet.init(contractsManager.address))
     .then(() => reward.init(contractsManager.address, rewardsWallet.address, STUB_PLATFORM_ADDRESS, ZERO_INTERVAL))
@@ -52,7 +66,7 @@ contract('Rewards', (accounts) => {
     .then(() => chronoMint.init(contractsManager.address, chronoMintWallet.address))
     .then(() => userManager.init(contractsManager.address))
     .then(() => timeHolderWallet.init(contractsManager.address))
-    .then(() => timeHolder.init(contractsManager.address, shares.address, timeHolderWallet.address, accounts[0]))
+    .then(() => timeHolder.init(contractsManager.address, DEFAULT_SHARE_SYMBOL, timeHolderWallet.address, accounts[0]))
     .then(() => assetsManager.addAsset(asset1.address, 'LHT', chronoMintWallet.address))
     .then(() => multiEventsHistory.authorize(reward.address))
     .then(() => {})
@@ -140,6 +154,8 @@ contract('Rewards', (accounts) => {
     .then((instance) => userManager = instance)
     .then(() => MultiEventsHistory.deployed())
     .then((instance) => multiEventsHistory = instance)
+    .then(() => ERC20Manager.new(storage.address, "ERC20Manager"))
+    .then((instance) => erc20Manager = instance)
     .then(() => FakeCoin2.deployed())
     .then((instance) => asset1 = instance)
     .then(() => FakeCoin3.deployed())
@@ -259,7 +275,7 @@ contract('Rewards', (accounts) => {
     return storage.setManager(ManagerMock.address)
       .then(() => reward.init(contractsManager.address, rewardsWallet.address, CHRONOBANK_PLATFORM_ID, ZERO_INTERVAL + 1))
       .then(() => userManager.init(contractsManager.address))
-      .then(() => timeHolder.init(contractsManager.address, shares.address, timeHolderWallet.address, accounts[0]))
+      .then(() => timeHolder.init(contractsManager.address, DEFAULT_SHARE_SYMBOL, timeHolderWallet.address, accounts[0]))
       .then(() => multiEventsHistory.authorize(reward.address))
       .then(() => reward.closePeriod.call())
       .then((res) => assert.notEqual(res, 1))
@@ -373,8 +389,8 @@ contract('Rewards', (accounts) => {
   it('should calculate reward', () => {
     return defaultInit()
       .then(() => asset1.mint(rewardsWallet.address, 100))
-      .then(() => timeHolder.deposit(75, { from: accounts[0] }))
-      .then(() => timeHolder.deposit(25, { from: accounts[1] }))
+      .then(() => timeHolder.depositTokenSymbol(DEFAULT_SHARE_SYMBOL, 75, { from: accounts[0] }))
+      .then(() => timeHolder.depositTokenSymbol(DEFAULT_SHARE_SYMBOL, 25, { from: accounts[1] }))
       //.then(() => reward.addAsset(asset1.address))
       .then(() => reward.closePeriod())
       .then(() => assertTotalDepositInPeriod(0, 100))
@@ -429,7 +445,7 @@ contract('Rewards', (accounts) => {
   // withdrawShares(uint _amount) returns(bool)
   it('should not withdraw more shares than you have', () => {
     return defaultInit()
-      .then(() => timeHolder.deposit(100))
+      .then(() => timeHolder.depositTokenSymbol(DEFAULT_SHARE_SYMBOL, 100))
       .then(() => timeHolder.withdrawShares.call(200))
       .then((res) => assert.notEqual(res, ErrorsEnum.OK))
       .then(() => timeHolder.withdrawShares(200))
@@ -442,7 +458,7 @@ contract('Rewards', (accounts) => {
 
   it('should withdraw shares without deposit in new period', () => {
     return defaultInit()
-      .then(() => timeHolder.deposit(100))
+      .then(() => timeHolder.depositTokenSymbol(DEFAULT_SHARE_SYMBOL, 100))
       .then(() => assertDepositBalance(accounts[0], 100))
       .then(() => assertDepositBalanceInPeriod(accounts[0], 0, 100))
       .then(() => assertTotalDepositInPeriod(0, 100))
@@ -456,7 +472,7 @@ contract('Rewards', (accounts) => {
 
   it('should withdraw shares', () => {
     return defaultInit()
-      .then(() => timeHolder.deposit(100))
+      .then(() => timeHolder.depositTokenSymbol(DEFAULT_SHARE_SYMBOL, 100))
       .then(() => timeHolder.withdrawShares(50))
       .then(() => assertDepositBalance(accounts[0], 50))
       .then(() => assertDepositBalanceInPeriod(accounts[0], 0, 50))

@@ -19,9 +19,7 @@ module.exports = function(deployer, network, accounts) {
     .then(_timeHolder => timeHolder = _timeHolder)
 
     .then(() => storageManager.giveAccess(TimeHolder.address, 'Deposits'))
-    .then(() => ERC20Manager.deployed())
-    .then(_erc20Manager => _erc20Manager.getTokenAddressBySymbol.call("TIME"))
-    .then(_timeAddress => timeHolder.init(ContractsManager.address, _timeAddress, TimeHolderWallet.address, systemOwner))
+    .then(() => timeHolder.init(ContractsManager.address, "TIME", TimeHolderWallet.address, systemOwner))
     .then(() => MultiEventsHistory.deployed())
     .then(_history => _history.authorize(timeHolder.address))
     .then(() => timeHolder.addListener(VoteActor.address))

@@ -2,7 +2,7 @@ pragma solidity ^0.4.11;
 
 import '../core/event/MultiEventsHistoryAdapter.sol';
 
-contract TimeHolderEmmiter is MultiEventsHistoryAdapter {
+contract TimeHolderEmitter is MultiEventsHistoryAdapter {
     /**
     *  User deposited into current period.
     */
@@ -33,27 +33,27 @@ contract TimeHolderEmmiter is MultiEventsHistoryAdapter {
     */
     event Error(address indexed self, uint errorCode);
 
-    function emitDeposit(address who, uint amount) {
+    function emitDeposit(address who, uint amount) public {
         Deposit(who, amount);
     }
 
-    function emitWithdrawShares(address who, uint amount) {
+    function emitWithdrawShares(address who, uint amount) public {
         WithdrawShares(who, amount);
     }
 
-    function emitListenerAdded(address listener) {
+    function emitListenerAdded(address listener) public {
         ListenerAdded(listener);
     }
 
-    function emitListenerRemoved(address listener) {
+    function emitListenerRemoved(address listener) public {
         ListenerRemoved(listener);
     }
 
-    function emitFeatureFeeTaken(address _from, address _to, uint _amount) {
+    function emitFeatureFeeTaken(address _from, address _to, uint _amount) public {
         FeatureFeeTaken(_self(), _from, _to, _amount);
     }
 
-    function emitError(uint error) {
+    function emitError(uint error) public {
         Error(_self(), error);
     }
 }

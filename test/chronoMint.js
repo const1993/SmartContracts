@@ -879,13 +879,12 @@ contract('LOC Manager', function(accounts) {
             })
         });
 
-        it("should be able to deposit 100 TIME from owner", function () {
+        it("should be able to deposit 100 TIME from owner", async () => {
             let currentOwner = owner1
-            return Setup.timeHolder.deposit(100, {from: currentOwner}).then(() => {
-                return Setup.timeHolder.depositBalance(currentOwner, {from: currentOwner}).then((r) => {
-                    assert.equal(r, 100);
-                })
-            })
+            let depositTx = await Setup.timeHolder.depositForTokenSymbol(SYMBOL, currentOwner, 100, { from: currentOwner })
+            let balance = await Setup.timeHolder.depositBalanceForTokenSymbol(SYMBOL, currentOwner, { from: currentOwner })
+
+            assert.equal(balance, 100);
         })
 
         it("should show 100 TIME for currnet rewards period", function () {

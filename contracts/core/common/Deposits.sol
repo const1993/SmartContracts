@@ -5,11 +5,15 @@ import "../lib/SafeMath.sol";
 import {ERC20Manager as ERC20Service} from "../erc20/ERC20Manager.sol";
 
 /**
-* @title TODO
+* @title Defines parent contract for working with deposits users make to participate in ecosystem and gain
+* additional functionality (such as rewards, token holders and so forth).
 */
 contract Deposits is BaseManager {
 
     using SafeMath for uint;
+
+
+    /** Storage keys */
 
     StorageInterface.OrderedAddressesSet shareholders;
     StorageInterface.UIntOrderedSetMapping deposits;
@@ -33,13 +37,14 @@ contract Deposits is BaseManager {
         sharesContractsStorage.init('sharesContractsStorage');
         defaultSharesSymbolStorage.init('defaultSharesSymbolStorage');
 
-        depositsIdCounter_old.init('depositsIdCounter'); // DEPRECATED
-        totalSharesStorage_old.init('totalSharesStorage'); // DEPRECATED
-        sharesContractStorage_old.init('sharesContractStorage'); // DEPRECATED
+        depositsIdCounter_old.init('depositsIdCounter'); // DEPRECATED. WILL BE REMOVED IN THE NEXT RELEASE
+        totalSharesStorage_old.init('totalSharesStorage'); // DEPRECATED. WILL BE REMOVED IN THE NEXT RELEASE
+        sharesContractStorage_old.init('sharesContractStorage'); // DEPRECATED. WILL BE REMOVED IN THE NEXT RELEASE
     }
 
     /**
-    * @dev TODO: consider a better way to update storage variables to the new appearance
+    * @dev Performs migrations to an updated version (v2) of contract.
+    * @notice Will be removed after the next release.
     */
     function _migrateToVersion2() internal {
         bytes32 _defaultSymbol = store.get(defaultSharesSymbolStorage);
@@ -57,24 +62,24 @@ contract Deposits is BaseManager {
     }
 
     /**
-     * @dev Returns shares amount deposited by a particular shareholder for defaultSharesSymbolStorage.
-     *
-     * @param _address shareholder address.
-     *
-     * @return _balance shares amount.
-     */
+    * @dev Returns shares amount deposited by a particular shareholder for defaultSharesSymbolStorage.
+    *
+    * @param _address shareholder address.
+    *
+    * @return shares amount.
+    */
     function depositBalance(address _address) public constant returns (uint) {
         return depositBalanceForTokenSymbol(store.get(defaultSharesSymbolStorage), _address);
     }
 
     /**
-     * @dev Returns shares amount deposited by a particular shareholder.
-     *
-     * @param _smbl token symbol.
-     * @param _address shareholder address.
-     *
-     * @return _balance shares amount.
-     */
+    * @dev Returns shares amount deposited by a particular shareholder.
+    *
+    * @param _smbl token symbol.
+    * @param _address shareholder address.
+    *
+    * @return _balance shares amount.
+    */
     function depositBalanceForTokenSymbol(bytes32 _smbl, address _address) public constant returns (uint _balance) {
         bytes32 _key = getCompositeKey(_smbl, _address);
         StorageInterface.Iterator memory iterator = store.listIterator(deposits, _key);
@@ -85,7 +90,7 @@ contract Deposits is BaseManager {
     }
 
     /**
-    * @dev TODO
+    * @dev Gets key combined from token symbol and user's address
     */
     function getCompositeKey(bytes32 _smbl, address _address) internal constant returns (bytes32) {
         return keccak256(_smbl, _address);
@@ -96,7 +101,7 @@ contract Deposits is BaseManager {
     }
 
     /**
-    *   Returns token symbol by given address.
+    * @dev Returns token symbol by given address.
     */
     function getTokenSymbol(address _token) internal constant returns (bytes32) {
         var (,, symbol,,,,) = lookupERC20Service().getTokenMetaData(_token);

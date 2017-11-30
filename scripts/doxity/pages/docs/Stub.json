@@ -1,0 +1,1 @@
+{"fileName":"/contracts/helpers/Stub.sol","name":"Stub","abi":[{"payable":false,"stateMutability":"nonpayable","type":"fallback"}],"source":"pragma solidity ^0.4.11;\n\n// For testing purposes.\ncontract Stub {\n    function () {}\n}\n","abiDocs":[{"payable":false,"stateMutability":"nonpayable","type":"fallback","inputs":[]}]}

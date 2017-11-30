@@ -1,1 +1,14 @@
-linkPrefix = ""
+linkPrefix = "/SmartContracts"
+name = "chronobank-smart-contracts"
+license = "GPLv3"
+version = "1.1.43"
+description = "Chronobank Smart Contracts"
+author = "Mike Fluff <mf@mikefluff.com> (http://mikefluff.com)"
+buildTime = 2017-12-03T19:49:06.597Z
+target = "scripts/doxity"
+src = "contracts/*"
+dir = "pages/docs"
+source = "https://github.com/DigixGlobal/doxity-gatsby-starter-project/archive/a4886b7a7a04c018ac04fed3125d7d4785e74bed.tar.gz"
+out = "docs"
+
+[interaction]

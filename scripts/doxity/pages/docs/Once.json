@@ -1,0 +1,1 @@
+{"fileName":"/contracts/core/common/Once.sol","name":"Once","abi":[],"source":"pragma solidity ^0.4.11;\n\ncontract Once {\n    mapping (bytes4 => bool) methods;\n\n    modifier onlyOnce() {\n        if (!methods[msg.sig]) {\n            _;\n            methods[msg.sig] = true;\n        }\n    }\n}\n","abiDocs":[]}

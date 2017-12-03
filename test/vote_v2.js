@@ -11,9 +11,9 @@ const MultiEventsHistory = artifacts.require('./MultiEventsHistory.sol')
 const PendingManager = artifacts.require("./PendingManager.sol")
 const ChronoBankAssetProxy = artifacts.require("./ChronoBankAssetProxy.sol")
 const VotingManager = artifacts.require("./VotingManager.sol")
-const PollEntityInterface = artifacts.require("./PollEntityInterface.sol")
+const PollInterface = artifacts.require("./PollInterface.sol")
 const VotingManagerEmitter = artifacts.require("./VotingManagerEmitter.sol")
-const PollEntityEmitter = artifacts.require("./PollEntityEmitter.sol")
+const PollEmitter = artifacts.require("./PollEmitter.sol")
 
 const reverter = new Reverter(web3)
 const timeMachine = new TimeMachine(web3)
@@ -64,8 +64,12 @@ contract('Vote v1', function(accounts) {
             let emitter = await VotingManagerEmitter.at(votingManager.address)
             let event = (await eventsHelper.findEvent([emitter], tx, 'PollCreated'))[0]
             assert.isDefined(event)
-            let poll = await PollEntityInterface.at(event.args.pollAddress)
-            await poll.activatePoll({ from: admin })
+            let poll = await PollInterface.at(event.args.pollAddress)
+            try {
+                await poll.activatePoll({ from: admin })
+            } catch (e) {
+                console.log(e);
+            }
 
             polls.push(poll)
         }
@@ -143,7 +147,7 @@ contract('Vote v1', function(accounts) {
         let pollEntity
         let otherPollEntity
         let otherPollVotelimit = 75
-        let creationTime
+        let deadline
 
         context("single voter (owner)", function () {
 
@@ -152,16 +156,15 @@ contract('Vote v1', function(accounts) {
                 assert.notEqual(voteLimit.toNumber(), 0)
 
                 let currentTime = await clock.time.call()
-                creationTime = currentTime.plus(10000)
+                deadline = currentTime.plus(10000)
 
-                let createdPollResult = await votingManager.createPoll.call(['1', '2'], ['1', '2'], vote1Obj.details, voteLimit.minus(1), creationTime, {
+                let createdPollResult = await votingManager.createPoll.call(['1', '2'], ['1', '2'], vote1Obj.details, voteLimit.minus(1), deadline, {
                     from: owner,
                     gas: 3000000
                 })
-                assert.notEqual(createdPollResult[0], 0x0)
-                assert.equal(createdPollResult[1], ErrorsEnum.OK)
+                assert.equal(createdPollResult, ErrorsEnum.OK)
 
-                let createdPollTx = await votingManager.createPoll(['1', '2'], ['1', '2'], vote1Obj.details, voteLimit.minus(1), creationTime, {
+                let createdPollTx = await votingManager.createPoll(['1', '2'], ['1', '2'], vote1Obj.details, voteLimit.minus(1), deadline, {
                     from: owner,
                     gas: 3000000
                 })
@@ -171,7 +174,7 @@ contract('Vote v1', function(accounts) {
                 assert.isDefined(event)
 
                 pollAddress = event.args.pollAddress
-                pollEntity = await PollEntityInterface.at(pollAddress)
+                pollEntity = await PollInterface.at(pollAddress)
             })
 
             it("should have owner as an owner of created poll", async () => {
@@ -205,10 +208,10 @@ contract('Vote v1', function(accounts) {
                 }
             })
 
-            it('owner should be able to activate a poll if he is an owner and poll wasn\'t activated yes', async () => {
+            it('admin should be able to activate a poll if poll wasn\'t activated yet', async () => {
                 try {
-                    let activationTx = await pollEntity.activatePoll()
-                    let emitter = await VotingManagerEmitter.at(votingManager.address)
+                    let activationTx = await pollEntity.activatePoll({ from: admin })
+                    let emitter = await PollEmitter.at(pollEntity.address)
                     let event = (await eventsHelper.findEvent([emitter], activationTx, "PollActivated"))[0]
                     assert.isDefined(event)
 
@@ -226,7 +229,7 @@ contract('Vote v1', function(accounts) {
                 let voteTx = await pollEntity.vote(1, { from: owner })
                 console.log('vote in poll', voteTx.tx);
 
-                let emitter = await VotingManagerEmitter.at(votingManager.address)
+                let emitter = await PollEmitter.at(pollEntity.address)
                 let event = (await eventsHelper.findEvent([emitter], voteTx, "PollVoted"))[0]
                 assert.isDefined(event)
             })
@@ -245,7 +248,7 @@ contract('Vote v1', function(accounts) {
                 assert.lengthOf(details, 9)
                 assert.equal(details[0], owner)
                 assert.equal(details[1], vote1Obj.details)
-                assert.equal(details[3].toNumber(), creationTime.toNumber())
+                assert.equal(details[3].toNumber(), deadline.toNumber())
                 assert.isOk(details[4])
                 assert.isOk(details[5])
             })
@@ -259,17 +262,16 @@ contract('Vote v1', function(accounts) {
 
             it("should be able to create another poll by owner", async () => {
                 let currentTime = await clock.time.call()
-                creationTime = currentTime.plus(10000)
+                deadline = currentTime.plus(10000)
 
-                let createdPollResult = await votingManager.createPoll.call(['3', '4'], ['3', '4'], vote1Obj.details, otherPollVotelimit, creationTime, {
+                let createdPollResult = await votingManager.createPoll.call(['3', '4'], ['3', '4'], vote1Obj.details, otherPollVotelimit, deadline, {
                     from: owner,
                     gas: 3000000
                 })
 
-                assert.notEqual(createdPollResult[0], 0x0)
-                assert.equal(createdPollResult[1], ErrorsEnum.OK)
+                assert.equal(createdPollResult, ErrorsEnum.OK)
 
-                let createdPollTx = await votingManager.createPoll(['3', '4'], ['3', '4'], vote1Obj.details, otherPollVotelimit, creationTime, {
+                let createdPollTx = await votingManager.createPoll(['3', '4'], ['3', '4'], vote1Obj.details, otherPollVotelimit, deadline, {
                     from: owner,
                     gas: 3000000
                 })
@@ -279,7 +281,7 @@ contract('Vote v1', function(accounts) {
                 let event = (await eventsHelper.findEvent([emitter], createdPollTx, 'PollCreated'))[0]
                 assert.isDefined(event)
 
-                otherPollEntity = await PollEntityInterface.at(event.args.pollAddress)
+                otherPollEntity = await PollInterface.at(event.args.pollAddress)
                 assert.equal(otherPollEntity.address, event.args.pollAddress)
             })
 
@@ -289,13 +291,13 @@ contract('Vote v1', function(accounts) {
 
             it('should return all created polls for owner', async () => {
                 let pollsCount = await votingManager.getPollsCount.call()
-                let polls = await votingManager.getPollsPaginated.call(0, pollsCount)
-                let onlyPolls = polls[0].unique()
+                var polls = await votingManager.getPollsPaginated.call(0, pollsCount)
+                polls = polls.unique()
 
                 assert.equal(pollsCount, 2)
-                assert.lengthOf(onlyPolls, 2)
-                assert.include(onlyPolls, pollEntity.address)
-                assert.include(onlyPolls, otherPollEntity.address)
+                assert.lengthOf(polls, 2)
+                assert.include(polls, pollEntity.address)
+                assert.include(polls, otherPollEntity.address)
             })
 
             it('should participate in only one poll where owner have voted', async () => {
@@ -403,8 +405,9 @@ contract('Vote v1', function(accounts) {
                 assert.equal(successVotingResultCode, ErrorsEnum.OK)
 
                 let votingTx = await otherPollEntity.vote(2, { from: owner1 })
-                let emitter = await VotingManagerEmitter.at(votingManager.address)
+                let emitter = await PollEmitter.at(otherPollEntity.address)
                 let event = (await eventsHelper.findEvent([emitter], votingTx, "PollVoted"))[0]
+                assert.isDefined(event)
             })
 
             it('otherPoll should be shown as finished', async () => {
@@ -455,11 +458,12 @@ contract('Vote v1', function(accounts) {
 
             it('should allow to delete inactive poll for CBE user', async () => {
                 let pollToRemove = multiplePolls.pop()
+                let result = await pollToRemove.killPoll.call({ from: admin })
                 let killTx = await pollToRemove.killPoll({ from: admin })
+                console.log('killTx', killTx.tx);
                 let emitter = await VotingManagerEmitter.at(votingManager.address)
                 let event = (await eventsHelper.findEvent([emitter], killTx, "PollRemoved"))[0]
                 assert.isDefined(event)
-                assert.equal(event.args.pollAddress, pollToRemove.address)
 
                 let activePollsCount = await votingManager.getActivePollsCount.call()
                 assert.equal(activePollsCount, maximumPollsCount)
@@ -502,8 +506,11 @@ contract('Vote v1', function(accounts) {
 
             it('should allow CBE to end poll', async () => {
                 let pollToEnd = multiplePolls[0]
+                let isActive = await pollToEnd.active.call()
+                assert.isOk(isActive)
                 let endTx = await pollToEnd.endPoll({ from: admin })
-                let emitter = await VotingManagerEmitter.at(votingManager.address)
+                console.log('endPollTx', endTx.tx);
+                let emitter = await PollEmitter.at(pollToEnd.address)
                 let event = (await eventsHelper.findEvent([emitter], endTx, "PollEnded"))[0]
                 assert.isDefined(event)
 
@@ -638,7 +645,7 @@ contract('Vote v1', function(accounts) {
 
                 let addOptionTx = await firstPoll.addPollOption(additionalOption, { from: owner })
                 console.log('addOptionTx', addOptionTx.tx);
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], addOptionTx, "PollDetailsOptionAdded"))[0]
                 assert.isDefined(event)
                 let changedOptions = await getOptions(firstPoll)
@@ -655,7 +662,7 @@ contract('Vote v1', function(accounts) {
 
                 let removeOptionTx = await firstPoll.removePollOption(additionalOption, { from: owner })
                 console.log('removeOptionTx', removeOptionTx.tx);
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], removeOptionTx, "PollDetailsOptionRemoved"))[0]
                 assert.isDefined(event)
 
@@ -674,7 +681,7 @@ contract('Vote v1', function(accounts) {
                 assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
 
                 let addOptionTx = await firstPoll.addPollOption(additionalOption, { from: nonPollOwner })
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], addOptionTx, "PollDetailsOptionAdded"))[0]
                 assert.isUndefined(event)
 
@@ -693,7 +700,7 @@ contract('Vote v1', function(accounts) {
                 assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
 
                 let removeOptionTx = await firstPoll.removePollOption(additionalOption, { from: nonPollOwner })
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], removeOptionTx, "PollDetailsOptionRemoved"))[0]
                 assert.isUndefined(event)
 
@@ -710,7 +717,7 @@ contract('Vote v1', function(accounts) {
                 assert.equal(successUpdateResultCode, ErrorsEnum.OK)
 
                 let updateDetailsTx = await firstPoll.updatePollDetailsIpfsHash(updatedDetailsHash, { from: owner })
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], updateDetailsTx, "PollDetailsHashUpdated"))[0]
                 assert.isDefined(event)
 
@@ -728,7 +735,7 @@ contract('Vote v1', function(accounts) {
                 assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
 
                 let updateDetailsTx = await firstPoll.updatePollDetailsIpfsHash(updatedDetailsHash, { from: nonPollOwner })
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], updateDetailsTx, "PollDetailsHashUpdated"))[0]
                 assert.isUndefined(event)
 
@@ -750,7 +757,7 @@ contract('Vote v1', function(accounts) {
 
                 let addIpfsHashTx = await firstPoll.addPollIpfsHash(additionalIpfsHash, { from: owner })
                 console.log('addIpfsHashTx', addIpfsHashTx.tx);
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], addIpfsHashTx, "PollDetailsIpfsHashAdded"))[0]
                 assert.isDefined(event)
 
@@ -768,7 +775,7 @@ contract('Vote v1', function(accounts) {
 
                 let removeIpfsHashTx = await firstPoll.removePollIpfsHash(additionalIpfsHash, { from: owner })
                 console.log('removeIpfsHashTx', removeIpfsHashTx.tx);
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], removeIpfsHashTx, "PollDetailsIpfsHashRemoved"))[0]
                 assert.isDefined(event)
 
@@ -787,7 +794,7 @@ contract('Vote v1', function(accounts) {
                 assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
 
                 let addIpfsHashTx = await firstPoll.addPollIpfsHash(additionalIpfsHash, { from: nonPollOwner })
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], addIpfsHashTx, "PollDetailsIpfsHashAdded"))[0]
                 assert.isUndefined(event)
 
@@ -806,7 +813,7 @@ contract('Vote v1', function(accounts) {
                 assert.equal(failedResultCode, ErrorsEnum.UNAUTHORIZED)
 
                 let removeIpfsHashTx = await firstPoll.removePollIpfsHash(additionalIpfsHash, { from: nonPollOwner })
-                let emitter = await PollEntityEmitter.at(firstPoll.address)
+                let emitter = await PollEmitter.at(firstPoll.address)
                 let event = (await eventsHelper.findEvent([emitter], removeIpfsHashTx, "PollDetailsIpfsHashRemoved"))[0]
                 assert.isUndefined(event)
 
@@ -816,8 +823,7 @@ contract('Vote v1', function(accounts) {
             })
 
             it('should not allow to change any property in a poll when it was activated', async () => {
-                let poll = secondPoll
-                await poll.activatePoll({ from: admin })
+                let poll = pollEntity
                 let isActivated = await poll.active.call()
                 assert.isOk(isActivated)
 

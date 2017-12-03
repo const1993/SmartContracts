@@ -2,17 +2,14 @@ pragma solidity ^0.4.11;
 
 import '../../core/event/MultiEventsHistoryAdapter.sol';
 
-/**
-* @title Emitter with support of events history for VotingManager
-*/
+
+/// @title Emitter with support of events history for VotingManager
 contract VotingManagerEmitter is MultiEventsHistoryAdapter {
 
     /** Events */
 
     event PollCreated(address indexed self, address indexed pollAddress);
-    event PollActivated(address indexed self, address indexed pollAddress);
-    event PollVoted(address indexed self, address indexed pollAddress, uint8 choice);
-    event PollEnded(address indexed self, address indexed pollAddress);
+
     event PollRemoved(address indexed self, address indexed pollAddress);
 
     event VotingSharesPercentUpdated(address indexed self);
@@ -24,18 +21,6 @@ contract VotingManagerEmitter is MultiEventsHistoryAdapter {
 
     function emitPollCreated(address pollAddress) public {
         PollCreated(_self(), pollAddress);
-    }
-
-    function emitPollActivated(address pollAddress) public {
-        PollActivated(_self(), pollAddress);
-    }
-
-    function emitPollVoted(address pollAddress, uint8 choice) public {
-        PollVoted(_self(), pollAddress, choice);
-    }
-
-    function emitPollEnded(address pollAddress) public {
-        PollEnded(_self(), pollAddress);
     }
 
     function emitPollRemoved(address pollAddress) public {

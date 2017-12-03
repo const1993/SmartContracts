@@ -1,10 +1,10 @@
 pragma solidity ^0.4.11;
 
 import "./Vote.sol";
-import "./PollEmitter.sol";
+import "./PollOldEmitter.sol";
 import {TimeHolderInterface as TimeHolder} from "../timeholder/TimeHolderInterface.sol";
 
-contract PollManager is PollEmitter, Vote {
+contract PollManager is PollOldEmitter, Vote {
     /**
     * Presents a percent of shares used for limiting votes. 1 unit == 0.01%.
     * @dev Used because of absence of floating point numbers

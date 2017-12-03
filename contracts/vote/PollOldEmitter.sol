@@ -2,7 +2,7 @@ pragma solidity ^0.4.11;
 
 import './VoteEmitter.sol';
 
-contract PollEmitter is VoteEmitter {
+contract PollOldEmitter is VoteEmitter {
     function emitError(uint errorCode) {
         Error(_self(), errorCode);
     }

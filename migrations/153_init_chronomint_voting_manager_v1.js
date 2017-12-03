@@ -1,8 +1,9 @@
 const VotingManager = artifacts.require("./VotingManager.sol")
 const StorageManager = artifacts.require("./StorageManager.sol")
-const ContractsManager = artifacts.require("./ContractsManager.sol")
+const ContractsManager = artifacts.require('./ContractsManager.sol')
 const MultiEventsHistory = artifacts.require("./MultiEventsHistory.sol")
-const PollEntityFactory = artifacts.require("./PollEntityFactory.sol")
+const PollFactory = artifacts.require("./PollFactory.sol")
+const PollBackend = artifacts.require('./PollBackend.sol')
 const TimeHolder = artifacts.require('./TimeHolder.sol')
 
 module.exports = async (deployer, network) => {
@@ -11,7 +12,7 @@ module.exports = async (deployer, network) => {
         await _storageManager.giveAccess(VotingManager.address, "VotingManager_v1")
 
         let _votingManager = await VotingManager.deployed()
-        await _votingManager.init(ContractsManager.address, PollEntityFactory.address)
+        await _votingManager.init(ContractsManager.address, PollFactory.address, PollBackend.address)
 
         let _history = await MultiEventsHistory.deployed()
         await _history.authorize(VotingManager.address)

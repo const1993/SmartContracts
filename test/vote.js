@@ -153,7 +153,8 @@ contract('Vote', function(accounts) {
         return Setup.vote.manager.NewPoll(['1', '2'], ['1', '2'], vote1Obj.details, r - 1, unix + 10000, {
           from: owner,
           gas: 3000000
-        }).then(() => {
+      }).then((_tx) => {
+          console.log("create", _tx.tx);
           return Setup.vote.details.pollsCount.call().then((r) => {
             assert.equal(r, 1);
           });
@@ -226,6 +227,7 @@ contract('Vote', function(accounts) {
     it("owner should be able to vote Poll 1, Option 1", function() {
       return Setup.vote.actor.vote.call(1,1, {from: owner}).then((r) => {
         return Setup.vote.actor.vote(1,1, {from: owner}).then((r2) => {
+            console.log("vote", r2.tx);
           assert.isOk(r);
         });
       });
@@ -576,7 +578,8 @@ contract('Vote', function(accounts) {
     })
 
     it("should allow admin to end poll", function() {
-      return Setup.vote.manager.adminEndPoll(3, { from: admin }).then(() => {
+      return Setup.vote.manager.adminEndPoll(3, { from: admin }).then((_tx) => {
+          console.log('end', _tx.tx);
         return Setup.vote.details.getPoll.call(3).then((r) => {
           assert.equal(r[6], false)
         })
@@ -658,6 +661,7 @@ contract('Vote', function(accounts) {
           return Setup.vote.manager.removePoll.call(poll10Id).then((r) => {
               return Setup.vote.manager.removePoll(poll10Id)
               .then((tx) => {
+                  console.log('remove', tx.tx);
                     assert.equal(r, ErrorsEnum.OK)
                     let removeEvent = eventsHelper.extractEvents(tx, "PollDeleted")[0]
                     assert.equal(web3.toHex(removeEvent.args.pollId), web3.toHex(poll10Id))

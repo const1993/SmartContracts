@@ -68,7 +68,7 @@ contract WalletEmitter is MultiEventsHistoryAdapter {
     }
 
     function emitOwnerRemoved(address oldOwner) public {
-        MultisigWalletOwnerAdded(_self(), oldOwner);
+        MultisigWalletOwnerRemoved(_self(), oldOwner);
     }
 
     function emitRequirementChanged(uint newRequirement) public {

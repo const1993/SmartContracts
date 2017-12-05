@@ -443,6 +443,32 @@ contract('Wallets Manager', function(accounts) {
             transferResult = await wallet.transfer.call(owner3, 6000, 'ETH');
             assert.equal(ErrorsEnum.OK, transferResult);
         });
+
+        it("should withdraw random ERC20 token", async () => {
+
+            let createWalletTx = await Setup.walletsManager.createWallet([owner], 1, 0);
+            const walletCreatedEvents = eventsHelper.extractEvents(createWalletTx, "WalletCreated");
+            assert.equal(walletCreatedEvents.length, 1);
+            const walletAddress = walletCreatedEvents[0].args.wallet;
+
+            let wallet = Wallet.at(walletAddress);
+
+            let token1 = await FakeCoin.new();
+            await token1.mint(wallet.address, 1001);
+
+            let token2 = await FakeCoin.new();
+            await token2.mint(wallet.address, 1002);
+
+            assert.equal(await token1.balanceOf(wallet.address), 1001);
+            assert.equal(await token1.balanceOf(owner), 0);
+
+            assert.equal(await token2.balanceOf(wallet.address), 1002);
+            assert.equal(await token2.balanceOf(owner), 0);
+
+            await wallet.withdrawnTokens([token1.address, token2.address], owner);
+            assert.equal(await token1.balanceOf(owner), 1001);
+            assert.equal(await token2.balanceOf(owner), 1002);
+        })
     })
 })
 

@@ -610,6 +610,24 @@ contract Wallet is multiowned {
         return OK;
     }
 
+    // Just withdraws the `tokens` of the `_to`
+    function withdrawnTokens(address[] _tokens, address _to)
+    external
+    ensureReleaseTime
+    onlymanyowners()
+    payable
+    returns(uint) {
+        for(uint i=0; i<_tokens.length; i++) {
+            address token = _tokens[i];
+            uint balance = ERC20Interface(token).balanceOf(this);
+            if(balance != 0) {
+                require(ERC20Interface(token).transfer(_to, balance));
+            }
+
+        }
+        return OK;
+    }
+
     // Transact entry point. Goes into multisig process. Only for internal usage.
     function registerTx(uint _value, bytes _data)
     internal

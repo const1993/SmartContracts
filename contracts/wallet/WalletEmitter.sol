@@ -31,51 +31,51 @@ contract WalletEmitter is MultiEventsHistoryAdapter {
 
     event Error(address indexed self, uint errorCode);
 
-    function emitError(uint errorCode) {
+    function emitError(uint errorCode) public {
         Error(_self(), errorCode);
     }
 
-    function emitDeposit(address from, uint value) {
+    function emitDeposit(address from, uint value) public {
         MultisigWalletDeposit(_self(), from, value);
     }
 
-    function emitSingleTransact(address owner, uint value, address to, bytes32 symbol) {
+    function emitSingleTransact(address owner, uint value, address to, bytes32 symbol) public {
         MultisigWalletSingleTransact(_self(), owner, value, to, symbol);
     }
 
-    function emitMultiTransact(address owner, bytes32 operation, uint value, address to, bytes data) {
+    function emitMultiTransact(address owner, bytes32 operation, uint value, address to, bytes data) public {
         MultisigWalletMultiTransact(_self(), owner, operation, value, to, data);
     }
 
-    function emitConfirmationNeeded(bytes32 operation, address initiator, uint value, address to, bytes data) {
+    function emitConfirmationNeeded(bytes32 operation, address initiator, uint value, address to, bytes data) public {
         MultisigWalletConfirmationNeeded(_self(), operation, initiator, value, to, data);
     }
 
-    function emitConfirmation(address owner, bytes32 operation) {
+    function emitConfirmation(address owner, bytes32 operation) public {
         MultisigWalletConfirmation(_self(), owner, operation);
     }
 
-    function emitRevoke(address owner, bytes32 operation) {
+    function emitRevoke(address owner, bytes32 operation) public {
         MultisigWalletRevoke(_self(), owner, operation);
     }
 
-    function emitOwnerChanged(address oldOwner, address newOwner) {
+    function emitOwnerChanged(address oldOwner, address newOwner) public {
         MultisigWalletOwnerChanged(_self(), oldOwner, newOwner);
     }
 
-    function emitOwnerAdded(address newOwner) {
+    function emitOwnerAdded(address newOwner) public {
         MultisigWalletOwnerAdded(_self(), newOwner);
     }
 
-    function emitOwnerRemoved(address oldOwner) {
+    function emitOwnerRemoved(address oldOwner) public {
         MultisigWalletOwnerAdded(_self(), oldOwner);
     }
 
-    function emitRequirementChanged(uint newRequirement) {
+    function emitRequirementChanged(uint newRequirement) public {
         MultisigWalletRequirementChanged(_self(), newRequirement);
     }
 
-    function emit2FAChanged(bool enabled) {
+    function emit2FAChanged(bool enabled) public {
         MultisigWallet2FAChanged(_self(), enabled);
     }
 }

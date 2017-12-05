@@ -17,9 +17,9 @@ import "../core/erc20/ERC20Interface.sol";
 import "./WalletEmitter.sol";
 
 contract WalletsManagerInterface {
-    function removeWallet() returns (uint);
-    function getOracleAddress() constant returns (address);
-    function getOraclePrice() constant returns (uint);
+    function removeWallet() public returns (uint);
+    function getOracleAddress() view public returns (address);
+    function getOraclePrice() view public returns (uint);
 }
 
 contract multiowned is WalletEmitter {
@@ -584,7 +584,7 @@ contract Wallet is multiowned {
     }
 
     // Gets called when no other function matches
-    function() payable {
+    function() public payable {
         if (msg.value > 0) {
             _emitDeposit(msg.sender, msg.value);
         }
@@ -593,6 +593,7 @@ contract Wallet is multiowned {
 
     // Send _value amount of tokens/eth to address _to from this wallet
     function transfer(address _to, uint _value, bytes32 _symbol)
+    external
     ensureReleaseTime
     ensureBalance(_value, _symbol)
     onlymanyowners()

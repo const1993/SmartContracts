@@ -9,16 +9,14 @@ import "./Exchange.sol";
 import "./ExchangeManagerEmitter.sol";
 import "./ExchangeFactory.sol";
 
-/**
-*  ExchangeManager
-*
-*  ExchangeManager contract is the exchange registry which holds info
-*  about created exchanges and provides some util methods for managing it.
-*
-*  The entry point for creating new exchanges.
-*
-*  CBE users are permited to manage fee value against which an exchange will calculate fee.
-*/
+// @title ExchangeManager
+//
+// @notice ExchangeManager contract is the exchange registry which holds info
+// about created exchanges and provides some util methods for managing it.
+//
+// The entry point for creating new exchanges.
+//
+// CBE users are permited to manage fee value against which an exchange will calculate fee.
 contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
     uint constant ERROR_EXCHANGE_STOCK_NOT_FOUND = 7000;
     uint constant ERROR_EXCHANGE_STOCK_INTERNAL = 7001;
@@ -35,9 +33,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
-    /**
-    *  Contructor
-    */
+    // Contructor
     function ExchangeManager(Storage _store, bytes32 _crate) BaseManager(_store, _crate) public {
         exchanges.init("ex_m_exchanges");
         owners.init("ex_m_owners");
@@ -45,9 +41,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         fee.init("ex_m_fee");
     }
 
-    /**
-    *  Initialises an exchange with the given params
-    */
+    // Initialises an exchange with the given params
     function init(address _contractsManager, address _exchangeFactory)
     public
     onlyContractOwner
@@ -60,11 +54,9 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return OK;
     }
 
-    /**
-    *  Sets fee value against which the exchange should calculate fee.
-    *
-    *  Note, only CBE members are allowed to set this value.
-    */
+    // Sets fee value against which the exchange should calculate fee.
+    //
+    // Note, only CBE members are allowed to set this value.
     function setFee(uint _fee)
     public
     onlyAuthorized
@@ -75,9 +67,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return OK;
     }
 
-    /**
-    *  Sets the Exchange Factory address
-    */
+    // Sets the Exchange Factory address
     function setExchangeFactory(address _exchangeFactory)
     public
     onlyContractOwner
@@ -88,9 +78,7 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return OK;
     }
 
-    /**
-    *  Creates a new exchange with the given params.
-    */
+    // Creates a new exchange with the given params.
     function createExchange(
         bytes32 _symbol,
         uint _buyPrice,
@@ -152,10 +140,8 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return OK;
     }
 
-    /**
-    *  Deletes msg.sender from the exchange list.
-    *  Note: Designed to be called only by exchange contract.
-    */
+    // Deletes msg.sender from the exchange list.
+    // Note: Designed to be called only by exchange contract.
     function removeExchange()
     public
     returns (uint errorCode)
@@ -174,16 +160,12 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         return OK;
     }
 
-    /**
-    *  Tells whether the given _exchange is in registry.
-    */
+    // Tells whether the given _exchange is in registry.
     function isExchangeExists(address _exchange) public view returns (bool) {
         return store.includes(exchanges, bytes32(_exchange));
     }
 
-    /**
-    *  Returns the paginated array of excnhages, starting from _fromIdx and len _length.
-    */
+    // Returns the paginated array of excnhages, starting from _fromIdx and len _length.
     function getExchanges(uint _fromIdx, uint _length) public view returns (address [] result) {
         result = new address [] (_length);
         for (uint idx = 0; idx < _length; idx++) {
@@ -191,37 +173,27 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
-    /**
-    *  Returns the count of the registered exchanges.
-    */
+    // Returns the count of the registered exchanges.
     function getExchangesCount() public view returns (uint) {
         return store.count(exchanges);
     }
 
-    /**
-    *  Returns the exchanges which belongs to the given _owner
-    */
+    // Returns the exchanges which belongs to the given _owner
     function getExchangesForOwner(address _owner) public view returns (address []) {
         return store.get(owners, bytes32(_owner));
     }
 
-    /**
-    *  Returns the number of exchanges which belongs to the given _owner
-    */
+    // Returns the number of exchanges which belongs to the given _owner
     function getExchangesForOwnerCount(address _owner) public view returns (uint) {
         return store.count(owners, bytes32(_owner));
     }
 
-    /**
-    *  The fee value against which the exchange should calculate fee.
-    */
+    // The fee value against which the exchange should calculate fee.
     function getFee() public view returns (uint) {
         return store.get(fee);
     }
 
-    /**
-    *  Util method which returns agregated data for given _exchanges.
-    */
+    // Util method which returns agregated data for given _exchanges.
     function getExchangeData(address [] _exchanges)
     external
     view
@@ -254,30 +226,24 @@ contract ExchangeManager is ExchangeManagerEmitter, BaseManager {
         }
     }
 
-    /**
-    *  Returns the Exchange Factory address
-    */
+    // Returns the Exchange Factory address
     function getExchangeFactory() public view returns (ExchangeFactory) {
         return ExchangeFactory(store.get(exchangeFactory));
     }
 
-    /**
-    *  Retturns ERC20Manager address
-    */
+    // Retturns ERC20Manager address
     function lookupERC20Manager() internal view returns (ERC20Manager) {
         return ERC20Manager(lookupManager("ERC20Manager"));
     }
 
-    /**
-    *  Returns the symbol of the given token
-    */
+    // Returns the symbol of the given token
     function getSymbol(address _token) internal view returns (bytes32) {
         var (,,symbol,,,,) = lookupERC20Manager().getTokenMetaData(_token);
         return symbol;
     }
 
-    // Events History util methods
-
+    /* Events History util methods */
+    
     function _emitExchangeRemoved(address _exchange) internal {
         Asset asset = Exchange(_exchange).asset();
         ExchangeManagerEmitter(getEventsHistory())

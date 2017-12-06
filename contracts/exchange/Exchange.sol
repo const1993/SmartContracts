@@ -21,21 +21,19 @@ contract IExchangeManager {
     function removeExchange() public returns (uint errorCode);
 }
 
-/**
- *  @title ERC20-Ether exchange contract.
- *
- *  Users are able to buy/sell assigned ERC20 token for ether,
- *  as long as there is available supply. Contract owner maintains
- *  sufficient token and ether supply, and sets buy/sell prices.
- *
- *  In order to be able to sell tokens, user needs to create allowance
- *  for this contract, using standard ERC20 approve() function,
- *  so that exchange can take tokens from the user, when user
- *  orders a sell.
- *
- *  Note: all the non constant functions return false instead of
- *  throwing in case if state change didn't happen yet.
- */
+// @title ERC20-Ether exchange contract.
+//
+// @notice Users are able to buy/sell assigned ERC20 token for ether,
+// as long as there is available supply. Contract owner maintains
+// sufficient token and ether supply, and sets buy/sell prices.
+//
+// In order to be able to sell tokens, user needs to create allowance
+// for this contract, using standard ERC20 approve() function,
+// so that exchange can take tokens from the user, when user
+// orders a sell.
+//
+// Note: all the non constant functions return false instead of
+// throwing in case if state change didn't happen yet.
 contract Exchange is Object {
     using SafeMath for uint;
     uint constant ERROR_EXCHANGE_INVALID_INVOCATION = 6000;
@@ -45,7 +43,8 @@ contract Exchange is Object {
     uint constant ERROR_EXCHANGE_INSUFFICIENT_ETHER_SUPPLY = 6005;
     uint constant ERROR_EXCHANGE_PAYMENT_FAILED = 6006;
     uint constant ERROR_EXCHANGE_TRANSFER_FAILED = 6007;
-    // price 1.1 == 11* 10^1 == Price(10, 1)
+
+    // Price structure. Price representation: 1.1 == 11* 10^1 == Price(10, 1)
     struct Price {
         uint base;
         uint decimals;
@@ -71,32 +70,38 @@ contract Exchange is Object {
     event ExchangeBuy(address indexed exchange, address indexed who, uint token, uint eth);
     // On received ethers
     event ExchangeReceivedEther(address indexed exchange, address indexed sender, uint256 indexed amount);
-
+    // On tokens withdraw
     event ExchangeWithdrawTokens(address indexed exchange, address indexed recipient, uint amount, address indexed by);
+    // On eth withdraw
     event ExchangeWithdrawEther(address indexed exchange, address indexed recipient, uint amount, address indexed by);
+    // On Fee updated
     event ExchangeFeeUpdated(address indexed exchange, address rewards, uint feeValue, address indexed by);
+    // On prices updated
     event ExchangePricesUpdated(address indexed exchange, uint buyPrice, uint buyDecimals, uint sellPrice, uint sellDecimals, address indexed by);
+    // On state changed
     event ExchangeActiveChanged(address indexed exchange, bool isActive, address indexed by);
+    // On error
     event Error(address indexed exchange, uint errorCode);
 
     // Should use interface of the emitter, but address of events history.
     ExchangeEmitter eventsHistory;
+    // service registry
     address contractsManager;
 
+    // @notice only authorized account are permitted to call
     modifier onlyAuthorized() {
         if (msg.sender == contractOwner || authorized[msg.sender]) {
             _;
         }
     }
-    /**
-     * Assigns ERC20 token for exchange.
-     *
-     * Can be set only once, and only by contract owner.
-     *
-     * @param _asset ERC20 token address.
-     *
-     * @return success.
-     */
+
+    // @notice Assigns ERC20 token for exchange.
+    //
+    // Can be set only once, and only by contract owner.
+    //
+    // @param _asset ERC20 token address.
+    //
+    // @return OK if success.
     function init(
         address _contractsManager,
         address _asset,
@@ -120,15 +125,12 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-     * Sets EventsHstory contract address.
-     *
-     * Can be set only once, and only by contract owner.
-     *
-     * @param _eventsHistory MultiEventsHistory contract address.
-     *
-     * @return success.
-     */
+    // @notice Sets EventsHstory contract address.
+    // Can be set only once, and only by contract owner.
+    //
+    // @param _eventsHistory MultiEventsHistory contract address.
+    //
+    // @return OK if success.
     function setupEventsHistory(address _eventsHistory)
     public
     onlyContractOwner
@@ -139,10 +141,10 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-    *  Authorizes given address to execute restricted methods.
-    *  Can be called only by contract owner.
-    */
+    // @notice Authorizes given address to execute restricted methods.
+    // @dev Can be called only by contract owner.
+    //
+    // @return OK if success.
     function grantAuthorized(address _authorized)
     public
     onlyContractOwner
@@ -151,10 +153,10 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-    *  Revokes granted access rights.
-    *  Can be called only by contract owner.
-    */
+    // @notice Revokes granted access rights.
+    // @dev Can be called only by contract owner.
+    //
+    // @return OK if success.
     function revokeAuthorized(address _authorized)
     public
     onlyContractOwner
@@ -163,24 +165,22 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-    *  Tells whether given address is authorized or not
-    */
+    // @notice Tells whether given address is authorized or not
+    //
+    // @return `true` if given address is authorized to make secured changes.
     function isAuthorized(address _authorized) public constant returns (bool) {
         return authorized[_authorized];
     }
 
-    /**
-     * Set exchange operation prices.
-     * Sell price cannot be less than buy price.
-     *
-     * Can be set only by contract owner.
-     *
-     * @param _buyPrice price in wei at which exchange buys tokens.
-     * @param _sellPrice price in wei at which exchange sells tokens.
-     *
-     * @return success.
-     */
+    // @notice Set exchange operation prices.
+    // Sell price cannot be less than buy price.
+    //
+    // Can be set only by contract owner.
+    //
+    // @param _buyPrice price in wei at which exchange buys tokens.
+    // @param _sellPrice price in wei at which exchange sells tokens.
+    //
+    // @return OK if success.
     function setPrices(uint _buyPrice, uint _buyDecimals, uint _sellPrice, uint _sellDecimals)
     public
     onlyAuthorized
@@ -197,12 +197,12 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-    *  Exchange must be activated before using.
-    *
-    *  Note: An exchange is not activated `by default` after init().
-    *  Make sure that prices are valid before activation.
-    */
+    // @notice Exchange must be activated before using.
+    //
+    // Note: An exchange is not activated `by default` after init().
+    // Make sure that prices are valid before activation.
+    //
+    // @return OK if success.
     function setActive(bool _active)
     public
     onlyContractOwner
@@ -214,49 +214,40 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-    *  Returns ERC20 balance of an exchange
-    */
+    // @notice Returns ERC20 balance of an exchange
+    // @return balance.
     function assetBalance() public constant returns (uint) {
         return _balanceOf(this);
     }
 
-    /**
-     * Returns assigned token address balance.
-     *
-     * @param _address address to get balance.
-     *
-     * @return token balance.
-     */
+    // @notice Returns assigned token address balance.
+    //
+    // @param _address address to get balance.
+    //
+    // @return token balance.
     function _balanceOf(address _address) constant internal returns (uint) {
         return asset.balanceOf(_address);
     }
 
-    /**
-    *  Returns sell price
-    */
+    // @notice Returns sell price
     function getSellPrice() public view returns (uint base, uint decimals) {
         return (sellPrice.base, sellPrice.decimals);
     }
 
-    /**
-    *  Returns buy price
-    */
+    // @notice Returns buy price
     function getBuyPrice() public view returns (uint base, uint decimals) {
         return (buyPrice.base, buyPrice.decimals);
     }
 
-    /**
-     * Sell tokens for ether at specified price. Tokens are taken from caller
-     * though an allowance logic.
-     * Amount should be less than or equal to current allowance value.
-     * Price should be less than or equal to current exchange buyPrice.
-     *
-     * @param _amount amount of tokens to sell.
-     * @param _price price in wei at which sell will happen.
-     *
-     * @return success.
-     */
+    // @notice Sell tokens for ether at specified price. Tokens are taken from caller
+    // though an allowance logic.
+    // Amount should be less than or equal to current allowance value.
+    // Price should be less than or equal to current exchange buyPrice.
+    //
+    // @param _amount amount of tokens to sell.
+    // @param _price price in wei at which sell will happen.
+    //
+    // @return OK if success.
     function sell(uint _amount, uint _price, uint _priceDecimals) public returns (uint) {
         if (!isActive) {
             return _emitError(ERROR_EXCHANGE_MAINTENANCE_MODE);
@@ -287,16 +278,14 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-     * Buy tokens for ether at specified price. Payment needs to be sent along
-     * with the call, and should equal amount * price.
-     * Price should be greater than or equal to current exchange sellPrice.
-     *
-     * @param _amount amount of tokens to buy.
-     * @param _price price in wei at which buy will happen.
-     *
-     * @return success.
-     */
+    // @notice Buy tokens for ether at specified price. Payment needs to be sent along
+    // with the call, and should equal amount * price.
+    // Price should be greater than or equal to current exchange sellPrice.
+    //
+    // @param _amount amount of tokens to buy.
+    // @param _price price in wei at which buy will happen.
+    //
+    // @return OK if success.
     function buy(uint _amount, uint _price, uint _priceDecimals) payable public returns (uint) {
         if (!isActive) {
             return _emitError(ERROR_EXCHANGE_MAINTENANCE_MODE);
@@ -323,16 +312,14 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-     * Transfer specified amount of tokens from exchange to specified address.
-     *
-     * Can be called only by contract owner.
-     *
-     * @param _recipient address to transfer tokens to.
-     * @param _amount amount of tokens to transfer.
-     *
-     * @return success.
-     */
+    // @notice Transfer specified amount of tokens from exchange to specified address.
+    //
+    // Can be called only by contract owner.
+    //
+    // @param _recipient address to transfer tokens to.
+    // @param _amount amount of tokens to transfer.
+    //
+    // @return OK if success.
     function withdrawTokens(address _recipient, uint _amount) public onlyContractOwner returns (uint) {
         if (_balanceOf(this) < _amount) {
             return _emitError(ERROR_EXCHANGE_INSUFFICIENT_BALANCE);
@@ -351,29 +338,25 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-     * Transfer all tokens from exchange to specified address.
-     *
-     * Can be called only by contract owner.
-     *
-     * @param _recipient address to transfer tokens to.
-     *
-     * @return success.
-     */
+    // @notice Transfer all tokens from exchange to specified address.
+    //
+    // Can be called only by contract owner.
+    //
+    // @param _recipient address to transfer tokens to.
+    //
+    // @return OK if success.
     function withdrawAllTokens(address _recipient) public onlyContractOwner returns (uint) {
         return withdrawTokens(_recipient, _balanceOf(this));
     }
 
-    /**
-     * Transfer specified amount of wei from exchange to specified address.
-     *
-     * Can be called only by contract owner.
-     *
-     * @param _recipient address to transfer wei to.
-     * @param _amount amount of wei to transfer.
-     *
-     * @return success.
-     */
+    // @notice Transfer specified amount of wei from exchange to specified address.
+    //
+    // Can be called only by contract owner.
+    //
+    // @param _recipient address to transfer wei to.
+    // @param _amount amount of wei to transfer.
+    //
+    // @return OK if success.
     function withdrawEth(address _recipient, uint _amount) public onlyContractOwner returns (uint) {
         if (this.balance < _amount) {
             return _emitError(ERROR_EXCHANGE_INSUFFICIENT_ETHER_SUPPLY);
@@ -393,28 +376,24 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-     * Transfer all wei from exchange to specified address.
-     *
-     * Can be called only by contract owner.
-     *
-     * @param _recipient address to transfer wei to.
-     *
-     * @return success.
-     */
+    // @notice Transfer all wei from exchange to specified address.
+    //
+    // Can be called only by contract owner.
+    //
+    // @param _recipient address to transfer wei to.
+    //
+    // @return OK if success.
     function withdrawAllEth(address _recipient) public onlyContractOwner returns (uint) {
         return withdrawEth(_recipient, this.balance);
     }
 
-    /**
-     * Transfer all tokens and wei from exchange to specified address.
-     *
-     * Can be called only by contract owner.
-     *
-     * @param _recipient address to transfer tokens and wei to.
-     *
-     * @return success.
-     */
+    // @notice Transfer all tokens and wei from exchange to specified address.
+    //
+    // Can be called only by contract owner.
+    //
+    // @param _recipient address to transfer tokens and wei to.
+    //
+    // @return OK if success.
     function withdrawAll(address _recipient) public onlyContractOwner returns (uint result) {
         result = withdrawAllTokens(_recipient);
         if (result != OK) {
@@ -429,19 +408,17 @@ contract Exchange is Object {
         return OK;
     }
 
-    /**
-    *  Use kill() instead of destroy() to prevent accidental ether/ERC20 loosing
-    */
+    // @notice Use kill() instead of destroy() to prevent accidental ether/ERC20 loosing
     function destroy() public onlyContractOwner {
         revert();
     }
 
-    /**
-    *  Kills an exchnage contract.
-    *
-    *  Checks balances of an exchange before destroying.
-    *  Destroys an exchange only if balances are empty.
-    */
+    // @notice Kills an exchnage contract.
+    //
+    // Checks balances of an exchange before destroying.
+    // Destroys an exchange only if balances are empty.
+    //
+    // @return OK if success.
     function kill() public onlyContractOwner returns (uint errorCode) {
         if (this.balance > 0) {
             return _emitError(ERROR_EXCHANGE_INVALID_INVOCATION);
@@ -474,7 +451,7 @@ contract Exchange is Object {
         return OK;
     }
 
-    // Events helpers
+    /* Events helpers */
 
     function _emitError(uint _errorCode) internal returns (uint) {
         eventsHistory.emitError(_errorCode);
@@ -513,7 +490,7 @@ contract Exchange is Object {
         eventsHistory.emitReceivedEther(_sender, _amount);
     }
 
-    // emit* methods are designed to be called only via EventsHistory
+    /* emit* methods are designed to be called only via EventsHistory */
 
     function emitError(uint _errorCode) public returns (uint) {
         Error(msg.sender, _errorCode);
@@ -552,9 +529,7 @@ contract Exchange is Object {
         ExchangeReceivedEther(msg.sender, _sender, _amount);
     }
 
-    /**
-     * Accept all ether to maintain exchange supply.
-     */
+    // @notice Accept all ether to maintain exchange supply.
     function() payable public {
         if (msg.value != 0) {
             _emitReceivedEther(msg.sender, msg.value);

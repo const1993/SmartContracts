@@ -190,9 +190,14 @@ contract Exchange is Object {
         uint max_dec = 10**max(_buyDecimals, _sellDecimals);
         require(_buyPrice * max_dec / 10**_buyDecimals <= _sellPrice * max_dec / 10**_sellDecimals);
 
-        buyPrice = Price(_buyPrice, _buyDecimals);
-        sellPrice = Price(_sellPrice, _sellDecimals);
+        if (buyPrice.base != _buyPrice || buyPrice.decimals != _buyDecimals) {
+            buyPrice = Price(_buyPrice, _buyDecimals);
+        }
 
+        if (sellPrice.base != _sellPrice || sellPrice.decimals != _sellDecimals) {
+            sellPrice = Price(_sellPrice, _sellDecimals);
+        }
+        
         _emitPricesUpdated(_buyPrice, _buyDecimals, _sellPrice, _sellDecimals, msg.sender);
         return OK;
     }

@@ -20,7 +20,7 @@ The next foundational block in ecosystem is top-level contracts module (handful 
 
 [![Smart_Contracts_small_v6-1.png](https://s33.postimg.org/diw8gl1gf/Smart_Contracts_small_v6-1.png)](https://postimg.org/image/oihfs6rvf/) [PDF version](http://docdro.id/l4fNmNX) for detailed preview.
 
-_ContractsManager_ plays a role of central registry which holds references to all services registered in a system.
+**ContractsManager** plays a role of central registry which holds references to all services registered in a system.
 
 To get to the central registry contracts should be added by a contract owner of _ContractsManager_ or those contacts that are allowed to do so (based on ACL in StorageManger).
 

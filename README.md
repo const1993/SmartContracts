@@ -1,7 +1,5 @@
-chronobank-smart-contracts [![Build Status](https://travis-ci.org/ChronoBank/SmartContracts.svg?branch=master)](https://travis-ci.org/ChronoBank/SmartContracts)
+# ChronoBank Smart Contracts [![Build Status](https://travis-ci.org/ChronoBank/SmartContracts.svg?branch=master)](https://travis-ci.org/ChronoBank/SmartContracts)
 
-
-# ChronoBank Smart Contracts
 ## Overview
 
 _ChronoBank Smart Contracts_ ecosystem is built around two simple for understanding things: platforms and assets.

@@ -28,15 +28,15 @@ It worth mentioning that a set of managers (top-level and others) do not store t
 
 The next go
 
-_UserManager_ contract which role is to provide system-wide user registry where simple users and admins (_CBE_) live together. It also provides a part of multisignature infrastructure by keeping a number of admins required to confirm operations.
+**UserManager** contract which role is to provide system-wide user registry where simple users and admins (_CBE_) live together. It also provides a part of multisignature infrastructure by keeping a number of admins required to confirm operations.
 
-_PendingManager_ contract which provides the rest of multisignature functionality by holding and tracking operations performed in a system and carrying them out when critical number of confirmations were received.
+**PendingManager** contract which provides the rest of multisignature functionality by holding and tracking operations performed in a system and carrying them out when critical number of confirmations were received.
 
-_ERC20Manager_ contract which keeps track of all _ERC20-based tokens_ registered in a system.
+**ERC20Manager** contract which keeps track of all _ERC20-based tokens_ registered in a system.
 
-_Events History_ is a submodule which performs like a gate for all events happen in a system. All system managers are using the same instance of EventsHistory (see _MultiEventsHistory_ contract), other contracts created during system's work could use different event histories instances.
+**Events History** is a submodule which performs like a gate for all events happen in a system. All system managers are using the same instance of EventsHistory (see _MultiEventsHistory_ contract), other contracts created during system's work could use different event histories instances.
 
-_Labour-Offering Companies_ is a particular module that organizes work of _ChronoBank_ with 3rd-part companies and allows them to participate in _ChronoBank_ ecosystem (read the Whitepaper for more details).
+**Labour-Offering Companies (LOCManager)** is a particular module that organizes work of _ChronoBank_ with 3rd-part companies and allows them to participate in _ChronoBank_ ecosystem (read the Whitepaper for more details).
 
 The next part of modules are designed to make users' life easier by providing additional layers of abstraction on top of existing core contracts.
 
@@ -62,21 +62,22 @@ Besides aforementioned modules there are also modules that manipulate tokens (_T
 - pay for unique functionality available in a system (such as creating a new platform, issuing a token, starting a token crowdsale, creating a wallet and some others).
 
 For providing such ability to a system there were introduced a couple of contracts that are coupled under _Deposit_ and _Feature Fee_ modules. _Deposit_ module includes:
-- _Reward_ contract that is responsible for tracking, calculating and withdrawing rewards for token holders (in case of ChronoBank it is _TIME_ tokens).
-- _TimeHolder_ keeps track of tokens stacked by users to unlock system's functionalities
+- **Reward** contract that is responsible for tracking, calculating and withdrawing rewards for token holders (in case of ChronoBank it is _TIME_ tokens).
+- **TimeHolder** keeps track of tokens stacked by users to unlock system's functionalities
 Feature Fee module organizes an instrument for signing system's functions as payable by system tokens (in case of _ChronoBank_ it is _TIME_ tokens).
 
 Last but not least is Additionals modules that provided extended functionalities for _ChronoBank_ ecosystem:
-- _Crowdsale_ - key contract is CrowdsaleManager and it organizes token crowdsale. It was made available to use only through AssetsManager.
-- _Voting_ - key contract is VotingManager which arranges poll creation where users that hold their TIME tokens in TimeHolder could vote to participate in system's decisions.
-- _Exchange_ - key contract is ExchangeManager which coordinates exchanges between different tokens and allows users to sell\buy tokens for another tokens.
+- **Crowdsale** - key contract is CrowdsaleManager and it organizes token crowdsale. It was made available to use only through AssetsManager.
+- **Voting** - key contract is VotingManager which arranges poll creation where users that hold their TIME tokens in TimeHolder could vote to participate in system's decisions.
+- **Exchange** - key contract is ExchangeManager which coordinates exchanges between different tokens and allows users to sell\buy tokens for another tokens.
 
 More detailed version of the scheme contains internal entities and connections that participate in module's work.
 
 ## Dive in!
-[![Smart_Contracts_full_v6-1.png](https://s33.postimg.org/3x2o0bklb/Smart_Contracts_full_v6-1.png)](https://postimg.org/image/i3ievjvgb/) [PDF version](http://docdro.id/O4kPYpC) for detailed preview.
 
 As were said _ChronoBank_ ecosystem has its own token called TIME that fuels work of many functions. We gather them in one place to provide more specific overview of their responsibilities.
+
+[![Smart_Contracts_full_v6-1.png](https://s33.postimg.org/3x2o0bklb/Smart_Contracts_full_v6-1.png)](https://postimg.org/image/i3ievjvgb/) [PDF version](http://docdro.id/O4kPYpC) for detailed preview.
 
 #### TimeHolder
 Main contracts:
